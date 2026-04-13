@@ -1,0 +1,22 @@
+name: PR Gate
+
+on:
+  pull_request:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  gate:
+    name: gate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Validate workflow syntax entrypoint
+        run: |
+          echo "PR Gate check is running"
+          echo "Repository: ${{ github.repository }}"
+          echo "PR #${{ github.event.pull_request.number || 'manual-dispatch' }}"
