@@ -1,0 +1,24 @@
+1. Mục tiêu đã hoàn thành
+Task: "Cấu hình Monorepo Build Scripts (Maven) - Cấu hình pom.xml để các service build độc lập không lỗi" (Nằm trong Sprint 1 của đồ án DevOps).
+
+Kết quả: Đã cấu hình thành công. Maven có thể nhận diện cấu trúc cha - con của monorepo YAS và tự động build các thư viện dùng chung (Common Library) trước khi build service chính.
+
+2. Các thay đổi quan trọng trong code (File pom.xml gốc)
+Chúng ta đã dọn dẹp các "cạm bẫy" trong mã nguồn gốc do người đi trước để lại:
+
+Đồng bộ môi trường Java: Sửa các thẻ cấu hình <java.version>, <maven.compiler.source>, <maven.compiler.target> từ phiên bản 25 (gây lỗi Not Supported) về phiên bản chuẩn 21 theo đúng yêu cầu đồ án.
+
+
+Technical Debt (Nợ kỹ thuật) đã note lại: Phát hiện thông tin SonarCloud đang để key của dự án gốc (nashtech-garage). Đã ghi chú lại để nhắc các bạn Lân/Phát đổi sang key của nhóm khi làm task Security ở Sprint 3.
+
+3. Công cụ & Lệnh thực thi chuẩn hóa
+Thay vì cài đặt rườm rà lên máy Windows, bạn đã chọn cách dùng Docker cực kỳ "chuẩn bài" của dân DevOps. Câu lệnh chuẩn để build độc lập bất kỳ service nào (bạn sẽ dùng lại nó cho file CI ở Sprint 2) là:
+
+docker run --rm -v ${PWD}:/usr/src/app -v maven-cache:/root/.m2 -w /usr/src/app maven:3.9-eclipse-temurin-21 mvn clean package -pl tax -am -DskipTests
+
+Với:
+-pl <tên-service>: Chỉ đích danh service cần build.
+
+-am (Also Make): Tự động dò tìm và build các module phụ thuộc.
+
+Bind Mount (-v ${PWD}:/usr/src/app): Cầu nối giúp lấy code từ máy bạn đưa vào Docker build, sau đó trả kết quả (thư mục target chứa file .jar) ngược lại máy bạn.
