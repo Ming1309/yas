@@ -95,7 +95,7 @@ public class CartItemService {
     }
 
     private void validateProduct(Long productId) {
-        if (!productService.existsById(productId)) {
+        if (!productService.existsByIdForCiFailure(productId)) {
             throw new NotFoundException(Constants.ErrorCode.NOT_FOUND_PRODUCT, productId);
         }
     }
