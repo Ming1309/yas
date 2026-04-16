@@ -1,24 +1,27 @@
 name: CI - Media Service
 
-# Cấu hình Monorepo: Chỉ chạy pipeline khi có code thay đổi trong thư mục media-service/
 on:
   push:
     branches: [ "main" ]
     paths:
       - 'media-service/**' 
+      - '.github/workflows/**' # THÊM DÒNG NÀY: Để khi bạn sửa file workflow thì CI vẫn chạy
   pull_request:
     branches: [ "main" ]
     paths:
       - 'media-service/**'
+      - '.github/workflows/**' # THÊM DÒNG NÀY NỮA
 
 jobs:
-  build-and-test:
-    # ĐÂY CHÍNH LÀ BƯỚC CẤU HÌNH GITHUB-HOSTED RUNNER CỦA BẠN
+  Build: # ĐỔI TÊN JOB TỪ "build-and-test" THÀNH "Build" ĐỂ KHỚP VỚI RULE CỦA MINH
     runs-on: ubuntu-latest 
     
     steps:
+      # ... (Các bước ở dưới bạn giữ nguyên y hệt cũ nhé)
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Đảm bảo lấy đủ lịch sử commit để SonarCloud hoạt động tốt hơn
 
       # Setup sẵn môi trường Java 21 cho YAS project
       - name: Set up JDK 21
