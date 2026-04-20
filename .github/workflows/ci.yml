@@ -1,0 +1,329 @@
+name: CI - Path Filter Based
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+  pull_request:
+    branches:
+      - main
+      - develop
+
+jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      backoffice-bff: ${{ steps.changes.outputs.backoffice-bff }}
+      backoffice: ${{ steps.changes.outputs.backoffice }}
+      cart: ${{ steps.changes.outputs.cart }}
+      customer: ${{ steps.changes.outputs.customer }}
+      delivery: ${{ steps.changes.outputs.delivery }}
+      inventory: ${{ steps.changes.outputs.inventory }}
+      location: ${{ steps.changes.outputs.location }}
+      media: ${{ steps.changes.outputs.media }}
+      order: ${{ steps.changes.outputs.order }}
+      payment: ${{ steps.changes.outputs.payment }}
+      payment-paypal: ${{ steps.changes.outputs.payment-paypal }}
+      product: ${{ steps.changes.outputs.product }}
+      promotion: ${{ steps.changes.outputs.promotion }}
+      rating: ${{ steps.changes.outputs.rating }}
+      recommendation: ${{ steps.changes.outputs.recommendation }}
+      search: ${{ steps.changes.outputs.search }}
+      sampledata: ${{ steps.changes.outputs.sampledata }}
+      storefront: ${{ steps.changes.outputs.storefront }}
+      storefront-bff: ${{ steps.changes.outputs.storefront-bff }}
+      tax: ${{ steps.changes.outputs.tax }}
+      webhook: ${{ steps.changes.outputs.webhook }}
+      automation-ui: ${{ steps.changes.outputs.automation-ui }}
+      common-library: ${{ steps.changes.outputs.common-library }}
+      deployment: ${{ steps.changes.outputs.deployment }}
+      kafka: ${{ steps.changes.outputs.kafka }}
+      nginx: ${{ steps.changes.outputs.nginx }}
+      scripts: ${{ steps.changes.outputs.scripts }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check for path changes
+        uses: dorny/paths-filter@v3
+        id: changes
+        with:
+          filters: |
+            backoffice-bff:
+              - 'backoffice-bff/**'
+            backoffice:
+              - 'backoffice/**'
+            cart:
+              - 'cart/**'
+            customer:
+              - 'customer/**'
+            delivery:
+              - 'delivery/**'
+            inventory:
+              - 'inventory/**'
+            location:
+              - 'location/**'
+            media:
+              - 'media/**'
+            order:
+              - 'order/**'
+            payment:
+              - 'payment/**'
+            payment-paypal:
+              - 'payment-paypal/**'
+            product:
+              - 'product/**'
+            promotion:
+              - 'promotion/**'
+            rating:
+              - 'rating/**'
+            recommendation:
+              - 'recommendation/**'
+            search:
+              - 'search/**'
+            sampledata:
+              - 'sampledata/**'
+            storefront:
+              - 'storefront/**'
+            storefront-bff:
+              - 'storefront-bff/**'
+            tax:
+              - 'tax/**'
+            webhook:
+              - 'webhook/**'
+            automation-ui:
+              - 'automation-ui/**'
+            common-library:
+              - 'common-library/**'
+            deployment:
+              - 'deployment/**'
+            kafka:
+              - 'kafka/**'
+            nginx:
+              - 'nginx/**'
+            scripts:
+              - 'scripts/**'
+
+  # Backend Services
+  ci-backoffice-bff:
+    needs: changes
+    if: needs.changes.outputs.backoffice-bff == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Running CI for backoffice-bff
+        run: echo "Running CI for backoffice-bff"
+
+  ci-cart:
+    needs: changes
+    if: needs.changes.outputs.cart == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Running CI for cart
+        run: echo "Running CI for cart"
+
+  ci-customer:
+    needs: changes
+    if: needs.changes.outputs.customer == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Running CI for customer
+        run: echo "Running CI for customer"
+
+  ci-delivery:
+    needs: changes
+    if: needs.changes.outputs.delivery == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Running CI for delivery
+        run: echo "Running CI for delivery"
+
+  ci-inventory:
+    needs: changes
+    if: needs.changes.outputs.inventory == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Running CI for inventory
+        run: echo "Running CI for inventory"
+
+  ci-location:
+    needs: changes
+    if: needs.changes.outputs.location == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Running CI for location
+        run: echo "Running CI for location"
+
+  ci-media:
+    needs: changes
+    if: needs.changes.outputs.media == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Running CI for media
+        run: echo "Running CI for media"
+
+  ci-order:
+    needs: changes
+    if: needs.changes.outputs.order == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Running CI for order
+        run: echo "Running CI for order"
+
+  ci-payment:
+    needs: changes
+    if: needs.changes.outputs.payment == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Running CI for payment
+        run: echo "Running CI for payment"
+
+  ci-payment-paypal:
+    needs: changes
+    if: needs.changes.outputs.payment-paypal == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Running CI for payment-paypal
+        run: echo "Running CI for payment-paypal"
+
+  ci-product:
+    needs: changes
+    if: needs.changes.outputs.product == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Running CI for product
+        run: echo "Running CI for product"
+
+  ci-promotion:
+    needs: changes
+    if: needs.changes.outputs.promotion == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Running CI for promotion
+        run: echo "Running CI for promotion"
+
+  ci-rating:
+    needs: changes
+    if: needs.changes.outputs.rating == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Running CI for rating
+        run: echo "Running CI for rating"
+
+  ci-recommendation:
+    needs: changes
+    if: needs.changes.outputs.recommendation == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Running CI for recommendation
+        run: echo "Running CI for recommendation"
+
+  ci-search:
+    needs: changes
+    if: needs.changes.outputs.search == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Running CI for search
+        run: echo "Running CI for search"
+
+  ci-sampledata:
+    needs: changes
+    if: needs.changes.outputs.sampledata == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Running CI for sampledata
+        run: echo "Running CI for sampledata"
+
+  ci-storefront-bff:
+    needs: changes
+    if: needs.changes.outputs.storefront-bff == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Running CI for storefront-bff
+        run: echo "Running CI for storefront-bff"
+
+  ci-tax:
+    needs: changes
+    if: needs.changes.outputs.tax == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Running CI for tax
+        run: echo "Running CI for tax"
+
+  ci-webhook:
+    needs: changes
+    if: needs.changes.outputs.webhook == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Running CI for webhook
+        run: echo "Running CI for webhook"
+
+  # Frontend Services
+  ci-backoffice:
+    needs: changes
+    if: needs.changes.outputs.backoffice == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Running CI for backoffice
+        run: echo "Running CI for backoffice"
+
+  ci-storefront:
+    needs: changes
+    if: needs.changes.outputs.storefront == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Running CI for storefront
+        run: echo "Running CI for storefront"
+
+  # Shared Libraries and Test Automation
+  ci-automation-ui:
+    needs: changes
+    if: needs.changes.outputs.automation-ui == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Running CI for automation-ui
+        run: echo "Running CI for automation-ui"
+
+  ci-common-library:
+    needs: changes
+    if: needs.changes.outputs.common-library == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Running CI for common-library
+        run: echo "Running CI for common-library"
+
+  # Infrastructure & Configuration
+  ci-deployment:
+    needs: changes
+    if: needs.changes.outputs.deployment == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Running CI for deployment
+        run: echo "Running CI for deployment"
+
+  ci-kafka:
+    needs: changes
+    if: needs.changes.outputs.kafka == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Running CI for kafka
+        run: echo "Running CI for kafka"
+
+  ci-nginx:
+    needs: changes
+    if: needs.changes.outputs.nginx == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Running CI for nginx
+        run: echo "Running CI for nginx"
+
+  ci-scripts:
+    needs: changes
+    if: needs.changes.outputs.scripts == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Running CI for scripts
+        run: echo "Running CI for scripts"
