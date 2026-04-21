@@ -41,6 +41,7 @@ jobs:
       - name: Analyze with sonar cloud
         if: ${{ env.FROM_ORIGINAL_REPOSITORY == 'true' }}
         env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         run: mvn org.sonarsource.scanner.maven:sonar-maven-plugin:sonar -f {{SERVICE_NAME}}
       - name: Log in to the Container registry
