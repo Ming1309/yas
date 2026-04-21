@@ -16,6 +16,10 @@
     <description>YAS Recommendation service</description>
 
     <properties>
+        <sonar.organization>ming1309</sonar.organization>
+        <sonar.host.url>https://sonarcloud.io</sonar.host.url>
+        <sonar.projectKey>Ming1309_yas-recommendation</sonar.projectKey>
+
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 
         <spring-ai.version>1.0.0-M2</spring-ai.version>
