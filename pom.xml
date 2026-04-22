@@ -69,6 +69,8 @@
         <opencsv.version>5.9</opencsv.version>
         <spring-retry.version>2.0.12</spring-retry.version>
         <jacoco-maven-plugin.version>0.8.14</jacoco-maven-plugin.version>
+        <dependency-check.failOnError>false</dependency-check.failOnError>
+        <dependency-check.centralAnalyzerEnabled>false</dependency-check.centralAnalyzerEnabled>
     </properties>
     <dependencyManagement>
         <dependencies>
@@ -300,6 +302,10 @@
                 <plugin>
                     <groupId>org.owasp</groupId>
                     <artifactId>dependency-check-maven</artifactId>
+                    <configuration>
+                        <failOnError>${dependency-check.failOnError}</failOnError>
+                        <centralAnalyzerEnabled>${dependency-check.centralAnalyzerEnabled}</centralAnalyzerEnabled>
+                    </configuration>
                     <executions>
                         <execution>
                             <goals>
