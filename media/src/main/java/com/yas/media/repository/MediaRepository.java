@@ -10,5 +10,5 @@ import org.springframework.stereotype.Repository;
 public interface MediaRepository extends JpaRepository<Media, Long> {
     @Query(value = "select new com.yas.media.viewmodel.NoFileMediaVm(m.id, m.caption, m.fileName, m.mediaType) "
         + "from Media m where m.id = ?1")
-    NoFileMediaVm findByIdWithoutFileInReturn(Long id);
+    NoFileMediaVm findByIdWithoutFileInReturnTestCI(Long id);
 }
