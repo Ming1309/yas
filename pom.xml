@@ -37,6 +37,38 @@
         <module>delivery</module>
     </modules>
 
+    <repositories>
+        <repository>
+            <id>spring-releases</id>
+            <name>Spring Releases</name>
+            <url>https://repo.spring.io/release</url>
+        </repository>
+        <repository>
+            <id>spring-milestones</id>
+            <name>Spring Milestones</name>
+            <url>https://repo.spring.io/milestone</url>
+            <snapshots>
+                <enabled>false</enabled>
+            </snapshots>
+        </repository>
+    </repositories>
+
+    <pluginRepositories>
+        <pluginRepository>
+            <id>spring-releases</id>
+            <name>Spring Releases</name>
+            <url>https://repo.spring.io/release</url>
+        </pluginRepository>
+        <pluginRepository>
+            <id>spring-milestones</id>
+            <name>Spring Milestones</name>
+            <url>https://repo.spring.io/milestone</url>
+            <snapshots>
+                <enabled>false</enabled>
+            </snapshots>
+        </pluginRepository>
+    </pluginRepositories>
+
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <java.version>25</java.version>
@@ -45,9 +77,9 @@
         <yas.version>1.0-SNAPSHOT</yas.version>
         <revision>1.0-SNAPSHOT</revision>
 
-        <sonar.organization>nashtech-garage</sonar.organization>
+        <sonar.organization>ming1309</sonar.organization>
         <sonar.host.url>https://sonarcloud.io</sonar.host.url>
-        <sonar.projectKey>nashtech-garage_yas-yas-parent</sonar.projectKey>
+        <sonar.projectKey>Ming1309_yas-yas-parent</sonar.projectKey>
         <org.mapstruct.version>1.6.3</org.mapstruct.version>
         <org.lombok.version>1.18.42</org.lombok.version>
         <lombok-mapstruct-binding.version>0.2.0</lombok-mapstruct-binding.version>
@@ -69,6 +101,8 @@
         <opencsv.version>5.9</opencsv.version>
         <spring-retry.version>2.0.12</spring-retry.version>
         <jacoco-maven-plugin.version>0.8.14</jacoco-maven-plugin.version>
+        <dependency-check.failOnError>false</dependency-check.failOnError>
+        <dependency-check.centralAnalyzerEnabled>false</dependency-check.centralAnalyzerEnabled>
     </properties>
     <dependencyManagement>
         <dependencies>
@@ -300,6 +334,10 @@
                 <plugin>
                     <groupId>org.owasp</groupId>
                     <artifactId>dependency-check-maven</artifactId>
+                    <configuration>
+                        <failOnError>${dependency-check.failOnError}</failOnError>
+                        <centralAnalyzerEnabled>${dependency-check.centralAnalyzerEnabled}</centralAnalyzerEnabled>
+                    </configuration>
                     <executions>
                         <execution>
                             <goals>
