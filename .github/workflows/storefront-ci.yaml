@@ -21,6 +21,7 @@ jobs:
     permissions:
       contents: read
       packages: write
+      security-events: write
     env:
       FROM_ORIGINAL_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name == github.repository || github.ref == 'refs/heads/main' }}
     steps:
@@ -62,3 +63,12 @@ jobs:
           context: ./storefront
           push: true
           tags: ghcr.io/${{ env.IMAGE_OWNER }}/yas-storefront:latest
+
+  Snyk:
+    if: ${{ github.event.pull_request.head.repo.full_name == github.repository || github.ref == 'refs/heads/main' }}
+    uses: ./.github/workflows/snyk-security.yaml
+    with:
+      service-name: storefront
+      build-tool: node
+    secrets:
+      SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}

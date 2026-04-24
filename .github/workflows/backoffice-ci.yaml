@@ -91,3 +91,12 @@ jobs:
         uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: 'trivy-results.sarif'
+
+  Snyk:
+    if: ${{ github.event.pull_request.head.repo.full_name == github.repository || github.ref == 'refs/heads/main' }}
+    uses: ./.github/workflows/snyk-security.yaml
+    with:
+      service-name: backoffice
+      build-tool: node
+    secrets:
+      SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}

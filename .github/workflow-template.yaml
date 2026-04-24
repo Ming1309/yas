@@ -57,3 +57,12 @@ jobs:
           context: ./{{SERVICE_NAME}}
           push: true
           tags: ghcr.io/nashtech-garage/yas-{{SERVICE_NAME}}:latest
+
+  Snyk:
+    if: ${{ github.event.pull_request.head.repo.full_name == github.repository || github.ref == 'refs/heads/main' }}
+    uses: ./.github/workflows/snyk-security.yaml
+    with:
+      service-name: {{SERVICE_NAME}}
+      build-tool: maven
+    secrets:
+      SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}

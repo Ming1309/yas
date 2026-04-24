@@ -1,0 +1,111 @@
+name: Snyk Security Scan
+
+on:
+  workflow_call:
+    inputs:
+      service-name:
+        required: true
+        type: string
+        description: "Tên service (e.g., order, cart, backoffice)"
+      build-tool:
+        required: true
+        type: string
+        description: "'maven' hoặc 'node'"
+    secrets:
+      SNYK_TOKEN:
+        required: true
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  snyk-scan:
+    name: Snyk Scan – ${{ inputs.service-name }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # ── Setup Maven (Java services) ──────────────────────────────────────
+      - name: Set up JDK 25
+        if: ${{ inputs.build-tool == 'maven' }}
+        uses: actions/setup-java@v4
+        with:
+          java-version: "25"
+          distribution: "temurin"
+          cache: "maven"
+
+      # ── Setup Node (Frontend services) ───────────────────────────────────
+      - name: Set up Node.js 20
+        if: ${{ inputs.build-tool == 'node' }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install Node dependencies
+        if: ${{ inputs.build-tool == 'node' }}
+        run: npm ci
+        working-directory: ${{ inputs.service-name }}
+
+      # ── Install Snyk CLI ──────────────────────────────────────────────────
+      - name: Setup Snyk CLI
+        uses: snyk/actions/setup@master
+
+      # ── Snyk Open Source (SCA – dependency scan) ─────────────────────────
+      - name: Snyk Open Source Test
+        continue-on-error: true   # Upload SARIF ngay cả khi có vulnerabilities
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        run: |
+          if [ "${{ inputs.build-tool }}" = "maven" ]; then
+            snyk test \
+              --file=${{ inputs.service-name }}/pom.xml \
+              --severity-threshold=high \
+              --sarif-file-output=snyk-sca.sarif
+          else
+            snyk test \
+              --file=${{ inputs.service-name }}/package.json \
+              --severity-threshold=high \
+              --sarif-file-output=snyk-sca.sarif
+          fi
+
+      # ── Snyk Code (SAST – source code analysis) ──────────────────────────
+      - name: Snyk Code Test
+        continue-on-error: true
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        run: |
+          snyk code test ${{ inputs.service-name }} \
+            --sarif-file-output=snyk-code.sarif || true
+
+      # ── Upload SARIF → GitHub Security tab ───────────────────────────────
+      - name: Upload Snyk Open Source results
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: snyk-sca.sarif
+          category: snyk-sca-${{ inputs.service-name }}
+
+      - name: Upload Snyk Code results
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: snyk-code.sarif
+          category: snyk-code-${{ inputs.service-name }}
+
+      # ── Snyk Monitor (đẩy lên Dashboard, chỉ trên main) ─────────────────
+      - name: Snyk Monitor
+        if: github.ref == 'refs/heads/main'
+        continue-on-error: true
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        run: |
+          if [ "${{ inputs.build-tool }}" = "maven" ]; then
+            snyk monitor \
+              --file=${{ inputs.service-name }}/pom.xml \
+              --project-name=yas/${{ inputs.service-name }}
+          else
+            snyk monitor \
+              --file=${{ inputs.service-name }}/package.json \
+              --project-name=yas/${{ inputs.service-name }}
+          fi
