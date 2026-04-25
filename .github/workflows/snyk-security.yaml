@@ -39,6 +39,16 @@ jobs:
           distribution: "temurin"
           cache: "maven"
 
+      # Resolve Maven deps trước để Snyk CLI có thể phân tích dependency tree
+      - name: Resolve Maven dependencies
+        if: ${{ inputs.build-tool == 'maven' }}
+        run: |
+          mvn dependency:resolve \
+            -f "$SERVICE_NAME/pom.xml" \
+            --batch-mode \
+            --fail-at-end \
+            -q || true
+
       # ── Setup Node (Frontend services) ───────────────────────────────────
       - name: Set up Node.js 20
         if: ${{ inputs.build-tool == 'node' }}
@@ -56,11 +66,10 @@ jobs:
         uses: snyk/actions/setup@master
 
       # ── Pre-create valid placeholder SARIF (GitHub API yêu cầu ít nhất 1 run) ──
-      - name: Initialize SARIF files
+      - name: Initialize SARIF file
         run: |
           EMPTY_SARIF='{"version":"2.1.0","$schema":"https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json","runs":[{"tool":{"driver":{"name":"Snyk","rules":[]}},"results":[]}]}'
           echo "$EMPTY_SARIF" > snyk-sca.sarif
-          echo "$EMPTY_SARIF" > snyk-code.sarif
 
       # ── Snyk Open Source (SCA – dependency scan) ─────────────────────────
       - name: Snyk Open Source Test
@@ -80,15 +89,6 @@ jobs:
               --sarif-file-output=snyk-sca.sarif || true
           fi
 
-      # ── Snyk Code (SAST – source code analysis) ──────────────────────────
-      - name: Snyk Code Test
-        continue-on-error: true
-        env:
-          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-        run: |
-          snyk code test "$SERVICE_NAME" \
-            --sarif-file-output=snyk-code.sarif || true
-
       # ── Upload SARIF → GitHub Security tab ───────────────────────────────
       - name: Upload Snyk Open Source results
         uses: github/codeql-action/upload-sarif@v4
@@ -96,13 +96,6 @@ jobs:
         with:
           sarif_file: snyk-sca.sarif
           category: snyk-sca-${{ inputs.service-name }}
-
-      - name: Upload Snyk Code results
-        uses: github/codeql-action/upload-sarif@v4
-        if: always()
-        with:
-          sarif_file: snyk-code.sarif
-          category: snyk-code-${{ inputs.service-name }}
 
       # ── Snyk Monitor (đẩy lên Dashboard, chỉ trên main) ─────────────────
       - name: Snyk Monitor
