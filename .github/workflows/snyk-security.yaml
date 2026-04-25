@@ -97,19 +97,4 @@ jobs:
           sarif_file: snyk-sca.sarif
           category: snyk-sca-${{ inputs.service-name }}
 
-      # ── Snyk Monitor (đẩy lên Dashboard, chỉ trên main) ─────────────────
-      - name: Snyk Monitor
-        if: github.ref == 'refs/heads/main'
-        continue-on-error: true
-        env:
-          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-        run: |
-          if [ "$BUILD_TOOL" = "maven" ]; then
-            snyk monitor \
-              --file="$SERVICE_NAME/pom.xml" \
-              --project-name="yas/$SERVICE_NAME"
-          else
-            snyk monitor \
-              --file="$SERVICE_NAME/package.json" \
-              --project-name="yas/$SERVICE_NAME"
-          fi
+
