@@ -51,11 +51,12 @@ jobs:
       - name: Setup Snyk CLI
         uses: snyk/actions/setup@master
 
-      # ── Pre-create empty SARIF files (đảm bảo upload không bị lỗi) ───────
+      # ── Pre-create valid placeholder SARIF (GitHub API yêu cầu ít nhất 1 run) ──
       - name: Initialize SARIF files
         run: |
-          echo '{"version":"2.1.0","$schema":"https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json","runs":[]}' > snyk-sca.sarif
-          echo '{"version":"2.1.0","$schema":"https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json","runs":[]}' > snyk-code.sarif
+          EMPTY_SARIF='{"version":"2.1.0","$schema":"https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json","runs":[{"tool":{"driver":{"name":"Snyk","rules":[]}},"results":[]}]}'
+          echo "$EMPTY_SARIF" > snyk-sca.sarif
+          echo "$EMPTY_SARIF" > snyk-code.sarif
 
       # ── Snyk Open Source (SCA – dependency scan) ─────────────────────────
       - name: Snyk Open Source Test
