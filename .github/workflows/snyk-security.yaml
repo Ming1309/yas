@@ -46,6 +46,7 @@ jobs:
             -f common-library/pom.xml \
             --batch-mode \
             -DskipTests \
+            -Drevision=1.0-SNAPSHOT \
             -q
 
       # Resolve Maven deps trước để Snyk CLI có thể phân tích dependency tree
@@ -55,8 +56,8 @@ jobs:
           mvn dependency:resolve \
             -f "$SERVICE_NAME/pom.xml" \
             --batch-mode \
-            --fail-at-end \
-            -q || true
+            -Drevision=1.0-SNAPSHOT \
+            -q
 
       # ── Setup Node (Frontend services) ───────────────────────────────────
       - name: Set up Node.js 20
@@ -85,17 +86,19 @@ jobs:
         continue-on-error: true
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+          # Truyền revision cho Maven subprocess mà Snyk CLI spawn
+          MAVEN_OPTS: -Drevision=1.0-SNAPSHOT
         run: |
           if [ "$BUILD_TOOL" = "maven" ]; then
             snyk test \
               --file="$SERVICE_NAME/pom.xml" \
               --severity-threshold=high \
-              --sarif-file-output=snyk-sca.sarif || true
+              --sarif-file-output=snyk-sca.sarif
           else
             snyk test \
               --file="$SERVICE_NAME/package.json" \
               --severity-threshold=high \
-              --sarif-file-output=snyk-sca.sarif || true
+              --sarif-file-output=snyk-sca.sarif
           fi
 
       # ── Upload SARIF → GitHub Security tab ───────────────────────────────
