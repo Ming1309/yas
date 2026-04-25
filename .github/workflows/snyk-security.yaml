@@ -48,7 +48,7 @@ jobs:
 
       - name: Install Node dependencies
         if: ${{ inputs.build-tool == 'node' }}
-        run: npm ci
+        run: npm ci --ignore-scripts
         working-directory: ${{ inputs.service-name }}
 
       # ── Install Snyk CLI ──────────────────────────────────────────────────
