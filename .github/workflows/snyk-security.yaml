@@ -39,35 +39,16 @@ jobs:
           distribution: "temurin"
           cache: "maven"
 
-      # 1. Install root parent POM vào .m2 (-N = non-recursive, chỉ install POM không build modules)
-      - name: Install root parent POM
-        if: ${{ inputs.build-tool == 'maven' }}
-        run: |
-          mvn install -N \
-            -f pom.xml \
-            --batch-mode \
-            -Drevision=1.0-SNAPSHOT \
-            -q
-
-      # 2. Install common-library (module nội bộ, không có trên Maven Central)
-      - name: Install common-library
+      # Dùng -pl + -am (also-make) để Maven tự resolve thứ tự build đúng
+      # Giống hệt cách cart-ci.yaml build: "mvn clean install -pl cart -am"
+      - name: Install service and dependencies
         if: ${{ inputs.build-tool == 'maven' }}
         run: |
           mvn install \
-            -f common-library/pom.xml \
+            --projects "$SERVICE_NAME" \
+            --also-make \
             --batch-mode \
             -DskipTests \
-            -Drevision=1.0-SNAPSHOT \
-            -q
-
-      # 3. Resolve service deps để Snyk CLI có thể phân tích dependency tree
-      - name: Resolve Maven dependencies
-        if: ${{ inputs.build-tool == 'maven' }}
-        run: |
-          mvn dependency:resolve \
-            -f "$SERVICE_NAME/pom.xml" \
-            --batch-mode \
-            -Drevision=1.0-SNAPSHOT \
             -q
 
       # ── Setup Node (Frontend services) ───────────────────────────────────
