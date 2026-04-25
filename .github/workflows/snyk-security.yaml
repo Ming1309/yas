@@ -39,6 +39,15 @@ jobs:
           distribution: "temurin"
           cache: "maven"
 
+      - name: Install common-library
+        if: ${{ inputs.build-tool == 'maven' }}
+        run: |
+          mvn install \
+            -f common-library/pom.xml \
+            --batch-mode \
+            -DskipTests \
+            -q
+
       # Resolve Maven deps trước để Snyk CLI có thể phân tích dependency tree
       - name: Resolve Maven dependencies
         if: ${{ inputs.build-tool == 'maven' }}
