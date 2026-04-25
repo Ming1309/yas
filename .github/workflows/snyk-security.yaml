@@ -23,6 +23,10 @@ jobs:
   snyk-scan:
     name: Snyk Scan – ${{ inputs.service-name }}
     runs-on: ubuntu-latest
+    # ── Gán inputs vào env ở job level để tránh script injection ─────────
+    env:
+      SERVICE_NAME: ${{ inputs.service-name }}
+      BUILD_TOOL: ${{ inputs.build-tool }}
     steps:
       - uses: actions/checkout@v4
 
@@ -64,14 +68,14 @@ jobs:
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         run: |
-          if [ "${{ inputs.build-tool }}" = "maven" ]; then
+          if [ "$BUILD_TOOL" = "maven" ]; then
             snyk test \
-              --file=${{ inputs.service-name }}/pom.xml \
+              --file="$SERVICE_NAME/pom.xml" \
               --severity-threshold=high \
               --sarif-file-output=snyk-sca.sarif || true
           else
             snyk test \
-              --file=${{ inputs.service-name }}/package.json \
+              --file="$SERVICE_NAME/package.json" \
               --severity-threshold=high \
               --sarif-file-output=snyk-sca.sarif || true
           fi
@@ -82,7 +86,7 @@ jobs:
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         run: |
-          snyk code test ${{ inputs.service-name }} \
+          snyk code test "$SERVICE_NAME" \
             --sarif-file-output=snyk-code.sarif || true
 
       # ── Upload SARIF → GitHub Security tab ───────────────────────────────
@@ -107,12 +111,12 @@ jobs:
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         run: |
-          if [ "${{ inputs.build-tool }}" = "maven" ]; then
+          if [ "$BUILD_TOOL" = "maven" ]; then
             snyk monitor \
-              --file=${{ inputs.service-name }}/pom.xml \
-              --project-name=yas/${{ inputs.service-name }}
+              --file="$SERVICE_NAME/pom.xml" \
+              --project-name="yas/$SERVICE_NAME"
           else
             snyk monitor \
-              --file=${{ inputs.service-name }}/package.json \
-              --project-name=yas/${{ inputs.service-name }}
+              --file="$SERVICE_NAME/package.json" \
+              --project-name="yas/$SERVICE_NAME"
           fi
