@@ -78,6 +78,7 @@ jobs:
         continue-on-error: true
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+          SNYK_CFG_DISABLE_ANALYTICS: "1"
           # Truyền revision cho Maven subprocess mà Snyk CLI spawn
           MAVEN_OPTS: -Drevision=1.0-SNAPSHOT
         run: |
@@ -85,12 +86,17 @@ jobs:
             snyk test \
               --file="$SERVICE_NAME/pom.xml" \
               --severity-threshold=high \
-              --sarif-file-output=snyk-sca.sarif
+              --sarif-file-output=snyk-sca-tmp.sarif -- -Drevision=1.0-SNAPSHOT || true
           else
             snyk test \
               --file="$SERVICE_NAME/package.json" \
               --severity-threshold=high \
-              --sarif-file-output=snyk-sca.sarif
+              --sarif-file-output=snyk-sca-tmp.sarif || true
+          fi
+          
+          # Only overwrite the initialized SARIF if Snyk successfully produced one
+          if [ -s snyk-sca-tmp.sarif ]; then
+            mv snyk-sca-tmp.sarif snyk-sca.sarif
           fi
 
       # ── Upload SARIF → GitHub Security tab ───────────────────────────────
