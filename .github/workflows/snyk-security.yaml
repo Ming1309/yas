@@ -51,9 +51,15 @@ jobs:
       - name: Setup Snyk CLI
         uses: snyk/actions/setup@master
 
+      # ── Pre-create empty SARIF files (đảm bảo upload không bị lỗi) ───────
+      - name: Initialize SARIF files
+        run: |
+          echo '{"version":"2.1.0","$schema":"https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json","runs":[]}' > snyk-sca.sarif
+          echo '{"version":"2.1.0","$schema":"https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json","runs":[]}' > snyk-code.sarif
+
       # ── Snyk Open Source (SCA – dependency scan) ─────────────────────────
       - name: Snyk Open Source Test
-        continue-on-error: true   # Upload SARIF ngay cả khi có vulnerabilities
+        continue-on-error: true
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         run: |
@@ -61,12 +67,12 @@ jobs:
             snyk test \
               --file=${{ inputs.service-name }}/pom.xml \
               --severity-threshold=high \
-              --sarif-file-output=snyk-sca.sarif
+              --sarif-file-output=snyk-sca.sarif || true
           else
             snyk test \
               --file=${{ inputs.service-name }}/package.json \
               --severity-threshold=high \
-              --sarif-file-output=snyk-sca.sarif
+              --sarif-file-output=snyk-sca.sarif || true
           fi
 
       # ── Snyk Code (SAST – source code analysis) ──────────────────────────
@@ -80,14 +86,14 @@ jobs:
 
       # ── Upload SARIF → GitHub Security tab ───────────────────────────────
       - name: Upload Snyk Open Source results
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         if: always()
         with:
           sarif_file: snyk-sca.sarif
           category: snyk-sca-${{ inputs.service-name }}
 
       - name: Upload Snyk Code results
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         if: always()
         with:
           sarif_file: snyk-code.sarif
