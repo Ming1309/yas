@@ -18,20 +18,26 @@ on:
   workflow_dispatch:
 
 jobs:
-  Build:
+  # ============================================================================
+  # PHASE 1: TEST - Run unit tests, code quality checks, security analysis
+  # ============================================================================
+  Test:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      packages: write
       checks: write
     env:
       FROM_ORIGINAL_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name == github.repository || github.ref == 'refs/heads/main' }}
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # Shallow clones should be disabled for a better relevancy of analysis
-      - uses: ./.github/workflows/actions
-      - name: Run Maven Build Command
+          fetch-depth: 0
+      
+      - name: Setup JDK environment
+        uses: ./.github/workflows/actions
+      
+      - name: Run Maven Tests and Build
         run: mvn clean install -pl media -am
       - name: Run Maven Checkstyle
         if: ${{ env.FROM_ORIGINAL_REPOSITORY == 'true' }}
@@ -79,17 +85,32 @@ jobs:
           min-coverage-changed-files: 60
           title: 'Media Coverage Report'
           update-comment: true
+
+  # ============================================================================
+  # PHASE 2: BUILD - Build Docker image and push to registry
+  # ============================================================================
+  Build:
+    needs: Test
+    runs-on: ubuntu-latest
+    if: ${{ github.ref == 'refs/heads/main' }}
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
       - name: Set lowercase image owner
         run: echo "IMAGE_OWNER=${GITHUB_REPOSITORY_OWNER,,}" >> $GITHUB_ENV
+      
       - name: Log in to the Container registry
-        if: ${{ github.ref == 'refs/heads/main' }}
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+      
       - name: Build and push Docker images
-        if: ${{ github.ref == 'refs/heads/main' }}
         uses: docker/build-push-action@v6
         with:
           context: ./media
