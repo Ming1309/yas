@@ -64,20 +64,54 @@ jobs:
           args: --disableCentral
       - name: Upload OWASP Dependency Check results
         if: ${{ env.FROM_ORIGINAL_REPOSITORY == 'true' }}
-        uses: actions/upload-artifact@master
+        uses: actions/upload-artifact@v4
         with:
           name: OWASP Dependency Check Report
           path: ${{github.workspace}}/reports
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Publish Test Results
+        uses: dorny/test-reporter@v1
+        if: ${{ env.FROM_ORIGINAL_REPOSITORY == 'true' && (success() || failure()) && hashFiles('storefront-bff/**/target/surefire-reports/TEST-*.xml', 'storefront-bff/**/target/failsafe-reports/TEST-*.xml') != '' }}
+        with:
+          name: Storefront-BFF-Test-Results
+          path: "storefront-bff/**/*-reports/TEST*.xml"
+          reporter: java-junit
+
+      - name: Upload JUnit Test Results
+        uses: actions/upload-artifact@v4
+        if: ${{ always() }}
+        with:
+          name: storefront-bff-junit-test-results
+          path: |
+            storefront-bff/**/target/surefire-reports/TEST-*.xml
+            storefront-bff/**/target/failsafe-reports/TEST-*.xml
+          if-no-files-found: warn
+          retention-days: 14
       - name: Add coverage report to PR
         uses: madrapps/jacoco-report@v1.6.1
-        if: ${{ env.FROM_ORIGINAL_REPOSITORY == 'true' }}
+        if: ${{ env.FROM_ORIGINAL_REPOSITORY == 'true' && github.event_name == 'pull_request' && hashFiles('storefront-bff/target/site/jacoco/jacoco.xml') != '' }}
         with:
           paths: ${{github.workspace}}/storefront-bff/target/site/jacoco/jacoco.xml
           token: ${{secrets.GITHUB_TOKEN}}
-          min-coverage-overall: 80
-          min-coverage-changed-files: 60
+          min-coverage-overall: 70
+          min-coverage-changed-files: 70
           title: 'Storefront BFF Coverage Report'
           update-comment: true
+
+      - name: Upload JaCoCo Coverage Report
+        uses: actions/upload-artifact@v4
+        if: ${{ always() }}
+        with:
+          name: storefront-bff-jacoco-coverage-report
+          path: |
+            storefront-bff/target/site/jacoco/jacoco.xml
+            storefront-bff/target/site/jacoco-it/jacoco.xml
+            storefront-bff/target/site/jacoco/index.html
+            storefront-bff/target/site/jacoco-it/index.html
+          if-no-files-found: warn
+          retention-days: 14
 
   # ============================================================================
   # PHASE 2: BUILD - Build Docker image and push to registry

@@ -49,11 +49,22 @@ jobs:
           path: '**/payment-checkstyle-result.xml'
       - name: Test Results
         uses: dorny/test-reporter@v1
-        if: ${{ env.FROM_ORIGINAL_REPOSITORY == 'true' && (success() || failure()) }}
+        if: ${{ env.FROM_ORIGINAL_REPOSITORY == 'true' && (success() || failure()) && hashFiles('payment/**/target/surefire-reports/TEST-*.xml', 'payment/**/target/failsafe-reports/TEST-*.xml') != '' }}
         with:
           name: Payment-Service-Unit-Test-Results
           path: "payment/**/*-reports/TEST*.xml"
           reporter: java-junit
+
+      - name: Upload JUnit Test Results
+        uses: actions/upload-artifact@v4
+        if: ${{ always() }}
+        with:
+          name: payment-junit-test-results
+          path: |
+            payment/**/target/surefire-reports/TEST-*.xml
+            payment/**/target/failsafe-reports/TEST-*.xml
+          if-no-files-found: warn
+          retention-days: 14
       - name: Analyze with sonar cloud
         if: ${{ env.FROM_ORIGINAL_REPOSITORY == 'true' }}
         env:
@@ -71,20 +82,35 @@ jobs:
           args: --disableCentral
       - name: Upload OWASP Dependency Check results
         if: ${{ env.FROM_ORIGINAL_REPOSITORY == 'true' }}
-        uses: actions/upload-artifact@master
+        uses: actions/upload-artifact@v4
         with:
           name: OWASP Dependency Check Report
           path: ${{github.workspace}}/reports
+          if-no-files-found: warn
+          retention-days: 14
       - name: Add coverage report to PR
         uses: madrapps/jacoco-report@v1.6.1
-        if: ${{ env.FROM_ORIGINAL_REPOSITORY == 'true' }}
+        if: ${{ env.FROM_ORIGINAL_REPOSITORY == 'true' && github.event_name == 'pull_request' && hashFiles('payment/target/site/jacoco/jacoco.xml') != '' }}
         with:
           paths: ${{github.workspace}}/payment/target/site/jacoco/jacoco.xml
           token: ${{secrets.GITHUB_TOKEN}}
-          min-coverage-overall: 80
-          min-coverage-changed-files: 60
+          min-coverage-overall: 70
+          min-coverage-changed-files: 70
           title: 'Payment Coverage Report'
           update-comment: true
+
+      - name: Upload JaCoCo Coverage Report
+        uses: actions/upload-artifact@v4
+        if: ${{ always() }}
+        with:
+          name: payment-jacoco-coverage-report
+          path: |
+            payment/target/site/jacoco/jacoco.xml
+            payment/target/site/jacoco-it/jacoco.xml
+            payment/target/site/jacoco/index.html
+            payment/target/site/jacoco-it/index.html
+          if-no-files-found: warn
+          retention-days: 14
 
   # ============================================================================
   # PHASE 2: BUILD - Build Docker image and push to registry

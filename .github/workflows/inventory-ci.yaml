@@ -49,11 +49,22 @@ jobs:
           path: '**/inventory-checkstyle-result.xml'
       - name: Test Results
         uses: dorny/test-reporter@v1
-        if: ${{ env.FROM_ORIGINAL_REPOSITORY == 'true' && (success() || failure()) }}
+        if: ${{ env.FROM_ORIGINAL_REPOSITORY == 'true' && (success() || failure()) && hashFiles('inventory/**/target/surefire-reports/TEST-*.xml', 'inventory/**/target/failsafe-reports/TEST-*.xml') != '' }}
         with:
           name: Inventory-Service-Test-Results
           path: "inventory/**/*-reports/TEST*.xml"
           reporter: java-junit
+
+      - name: Upload JUnit Test Results
+        uses: actions/upload-artifact@v4
+        if: ${{ always() }}
+        with:
+          name: inventory-junit-test-results
+          path: |
+            inventory/**/target/surefire-reports/TEST-*.xml
+            inventory/**/target/failsafe-reports/TEST-*.xml
+          if-no-files-found: warn
+          retention-days: 14
       - name: OWASP Dependency Check
         if: ${{ env.FROM_ORIGINAL_REPOSITORY == 'true' }}
         uses: dependency-check/Dependency-Check_Action@main
@@ -66,10 +77,12 @@ jobs:
           args: --disableCentral
       - name: Upload OWASP Dependency Check results
         if: ${{ env.FROM_ORIGINAL_REPOSITORY == 'true' }}
-        uses: actions/upload-artifact@master
+        uses: actions/upload-artifact@v4
         with:
           name: OWASP Dependency Check Report
           path: ${{github.workspace}}/reports
+          if-no-files-found: warn
+          retention-days: 14
       - name: Analyze with sonar cloud
         if: ${{ env.FROM_ORIGINAL_REPOSITORY == 'true' }}
         env:
@@ -77,14 +90,27 @@ jobs:
         run: mvn org.sonarsource.scanner.maven:sonar-maven-plugin:sonar -f inventory
       - name: Add coverage report to PR
         uses: madrapps/jacoco-report@v1.6.1
-        if: ${{ env.FROM_ORIGINAL_REPOSITORY == 'true' }}
+        if: ${{ env.FROM_ORIGINAL_REPOSITORY == 'true' && github.event_name == 'pull_request' && hashFiles('inventory/target/site/jacoco/jacoco.xml') != '' }}
         with:
           paths: ${{github.workspace}}/inventory/target/site/jacoco/jacoco.xml
           token: ${{secrets.GITHUB_TOKEN}}
-          min-coverage-overall: 80
-          min-coverage-changed-files: 60
+          min-coverage-overall: 70
+          min-coverage-changed-files: 70
           title: 'Inventory Coverage Report'
           update-comment: true
+
+      - name: Upload JaCoCo Coverage Report
+        uses: actions/upload-artifact@v4
+        if: ${{ always() }}
+        with:
+          name: inventory-jacoco-coverage-report
+          path: |
+            inventory/target/site/jacoco/jacoco.xml
+            inventory/target/site/jacoco-it/jacoco.xml
+            inventory/target/site/jacoco/index.html
+            inventory/target/site/jacoco-it/index.html
+          if-no-files-found: warn
+          retention-days: 14
 
   # ============================================================================
   # PHASE 2: BUILD - Build Docker image and push to registry

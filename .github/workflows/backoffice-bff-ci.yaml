@@ -47,6 +47,25 @@ jobs:
           path: '**/backoffice-bff-checkstyle-result.xml'
       - name: Run Maven Verify
         run: mvn clean verify -f backoffice-bff
+
+      - name: Publish Test Results
+        uses: dorny/test-reporter@v1
+        if: ${{ env.FROM_ORIGINAL_REPOSITORY == 'true' && (success() || failure()) && hashFiles('backoffice-bff/**/target/surefire-reports/TEST-*.xml', 'backoffice-bff/**/target/failsafe-reports/TEST-*.xml') != '' }}
+        with:
+          name: Backoffice-BFF-Test-Results
+          path: "backoffice-bff/**/*-reports/TEST*.xml"
+          reporter: java-junit
+
+      - name: Upload JUnit Test Results
+        uses: actions/upload-artifact@v4
+        if: ${{ always() }}
+        with:
+          name: backoffice-bff-junit-test-results
+          path: |
+            backoffice-bff/**/target/surefire-reports/TEST-*.xml
+            backoffice-bff/**/target/failsafe-reports/TEST-*.xml
+          if-no-files-found: warn
+          retention-days: 14
       - name: Analyze with sonar cloud
         if: ${{ env.FROM_ORIGINAL_REPOSITORY == 'true' }}
         env:
@@ -64,10 +83,36 @@ jobs:
           args: --disableCentral
       - name: Upload OWASP Dependency Check results
         if: ${{ env.FROM_ORIGINAL_REPOSITORY == 'true' }}
-        uses: actions/upload-artifact@master
+        uses: actions/upload-artifact@v4
         with:
           name: OWASP Dependency Check Report
           path: ${{github.workspace}}/reports
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Add coverage report to PR
+        uses: madrapps/jacoco-report@v1.6.1
+        if: ${{ env.FROM_ORIGINAL_REPOSITORY == 'true' && github.event_name == 'pull_request' && hashFiles('backoffice-bff/target/site/jacoco/jacoco.xml') != '' }}
+        with:
+          paths: ${{github.workspace}}/backoffice-bff/target/site/jacoco/jacoco.xml
+          token: ${{secrets.GITHUB_TOKEN}}
+          min-coverage-overall: 70
+          min-coverage-changed-files: 70
+          title: 'Backoffice BFF Coverage Report'
+          update-comment: true
+
+      - name: Upload JaCoCo Coverage Report
+        uses: actions/upload-artifact@v4
+        if: ${{ always() }}
+        with:
+          name: backoffice-bff-jacoco-coverage-report
+          path: |
+            backoffice-bff/target/site/jacoco/jacoco.xml
+            backoffice-bff/target/site/jacoco-it/jacoco.xml
+            backoffice-bff/target/site/jacoco/index.html
+            backoffice-bff/target/site/jacoco-it/index.html
+          if-no-files-found: warn
+          retention-days: 14
 
   # ============================================================================
   # PHASE 2: BUILD - Build Docker image and push to registry

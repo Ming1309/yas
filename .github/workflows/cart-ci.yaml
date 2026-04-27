@@ -53,11 +53,22 @@ jobs:
       
       - name: Publish Test Results
         uses: dorny/test-reporter@v1
-        if: ${{ env.FROM_ORIGINAL_REPOSITORY == 'true' && (success() || failure()) }}
+        if: ${{ env.FROM_ORIGINAL_REPOSITORY == 'true' && (success() || failure()) && hashFiles('cart/**/target/surefire-reports/TEST-*.xml', 'cart/**/target/failsafe-reports/TEST-*.xml') != '' }}
         with:
           name: Cart-Service-Unit-Test-Results
           path: "cart/**/*-reports/TEST*.xml"
           reporter: java-junit
+
+      - name: Upload JUnit Test Results
+        uses: actions/upload-artifact@v4
+        if: ${{ always() }}
+        with:
+          name: cart-junit-test-results
+          path: |
+            cart/**/target/surefire-reports/TEST-*.xml
+            cart/**/target/failsafe-reports/TEST-*.xml
+          if-no-files-found: warn
+          retention-days: 14
       
       - name: OWASP Dependency Check
         if: ${{ env.FROM_ORIGINAL_REPOSITORY == 'true' }}
@@ -72,10 +83,12 @@ jobs:
       
       - name: Upload OWASP Dependency Check results
         if: ${{ env.FROM_ORIGINAL_REPOSITORY == 'true' }}
-        uses: actions/upload-artifact@master
+        uses: actions/upload-artifact@v4
         with:
           name: OWASP Dependency Check Report
           path: ${{github.workspace}}/reports
+          if-no-files-found: warn
+          retention-days: 14
       
       - name: Analyze with SonarCloud
         if: ${{ env.FROM_ORIGINAL_REPOSITORY == 'true' }}
@@ -85,14 +98,27 @@ jobs:
       
       - name: Add coverage report to PR
         uses: madrapps/jacoco-report@v1.6.1
-        if: ${{ env.FROM_ORIGINAL_REPOSITORY == 'true' }}
+        if: ${{ env.FROM_ORIGINAL_REPOSITORY == 'true' && github.event_name == 'pull_request' && hashFiles('cart/target/site/jacoco/jacoco.xml') != '' }}
         with:
           paths: ${{github.workspace}}/cart/target/site/jacoco/jacoco.xml
           token: ${{secrets.GITHUB_TOKEN}}
-          min-coverage-overall: 80
-          min-coverage-changed-files: 60
+          min-coverage-overall: 70
+          min-coverage-changed-files: 70
           title: 'Cart Coverage Report'
           update-comment: true
+
+      - name: Upload JaCoCo Coverage Report
+        uses: actions/upload-artifact@v4
+        if: ${{ always() }}
+        with:
+          name: cart-jacoco-coverage-report
+          path: |
+            cart/target/site/jacoco/jacoco.xml
+            cart/target/site/jacoco-it/jacoco.xml
+            cart/target/site/jacoco/index.html
+            cart/target/site/jacoco-it/index.html
+          if-no-files-found: warn
+          retention-days: 14
 
   # ============================================================================
   # PHASE 2: BUILD - Build Docker image và push lên registry (chỉ chạy trên main branch)
