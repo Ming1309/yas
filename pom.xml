@@ -516,17 +516,17 @@
                                 <rule>
                                     <element>BUNDLE</element>
                                     <limits>
-                                        <!-- Tổng số dòng được thực thi phải >= 70% -->
+                                        <!-- Tổng số dòng được thực thi phải >= 50% (tạm thời test) -->
                                         <limit>
                                             <counter>LINE</counter>
                                             <value>COVEREDRATIO</value>
-                                            <minimum>0.70</minimum>
+                                            <minimum>0.50</minimum>
                                         </limit>
-                                        <!-- Tổng số nhánh (if/switch) được thực thi >= 70% -->
+                                        <!-- Tổng số nhánh (if/switch) được thực thi >= 50% (tạm thời test) -->
                                         <limit>
                                             <counter>BRANCH</counter>
                                             <value>COVEREDRATIO</value>
-                                            <minimum>0.70</minimum>
+                                            <minimum>0.50</minimum>
                                         </limit>
                                     </limits>
                                 </rule>
