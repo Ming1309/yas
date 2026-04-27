@@ -126,6 +126,12 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
       
+      - name: Setup JDK environment
+        uses: ./.github/workflows/actions
+      
+      - name: Build application (generate /target)
+        run: mvn clean package -pl media -am -DskipTests
+      
       - name: Set lowercase image owner
         run: echo "IMAGE_OWNER=${GITHUB_REPOSITORY_OWNER,,}" >> $GITHUB_ENV
       
