@@ -126,7 +126,7 @@ jobs:
   Build:
     needs: Test  # Phụ thuộc vào phase Test thành công
     runs-on: ubuntu-latest
-    if: ${{ github.ref == 'refs/heads/main' }}  # Chỉ chạy trên main branch
+    if: ${{ github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch' }}  # Chỉ chạy trên main branch hoặc workflow_dispatch
     permissions:
       contents: read
       packages: write
