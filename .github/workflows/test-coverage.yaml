@@ -4,14 +4,14 @@ on:
   push:
     branches: [ "main" ]
     paths:
-      - "*/src/**"
       - "pom.xml"
+      - "common-library/**"
       - ".github/workflows/test-coverage.yaml"
   pull_request:
     branches: [ "main" ]
     paths:
-      - "*/src/**"
       - "pom.xml"
+      - "common-library/**"
       - ".github/workflows/test-coverage.yaml"
   workflow_dispatch:
 
