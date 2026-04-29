@@ -2,15 +2,15 @@ name: Java Test & Coverage CI
 
 on:
   push:
-    branches: [ "main" ]
+    branches: ["**"]
     paths:
-      - "*/src/**"
+      - "common-library/**"
       - "pom.xml"
       - ".github/workflows/test-coverage.yaml"
   pull_request:
-    branches: [ "main" ]
+    branches: ["**"]
     paths:
-      - "*/src/**"
+      - "common-library/**"
       - "pom.xml"
       - ".github/workflows/test-coverage.yaml"
   workflow_dispatch:
@@ -23,7 +23,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      checks: write        # Cần để publish test report lên GitHub UI
+      checks: write # Cần để publish test report lên GitHub UI
       pull-requests: write # Cần để comment coverage lên PR
 
     env:
