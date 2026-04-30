@@ -136,4 +136,20 @@ class ProductServiceTest {
         when(requestBodyUriSpec.retrieve()).thenReturn(responseSpec);
         assertDoesNotThrow(() -> productService.updateProductQuantity(productQuantityPostVms));
     }
+
+    @Test
+    void handleProductInfoFallback_shouldThrowException() {
+        Throwable throwable = new RuntimeException("Test exception");
+        org.junit.jupiter.api.Assertions.assertThrows(RuntimeException.class, () -> {
+            productService.handleProductInfoFallback(throwable);
+        });
+    }
+
+    @Test
+    void handleProductInfoListFallback_shouldThrowException() {
+        Throwable throwable = new RuntimeException("Test exception");
+        org.junit.jupiter.api.Assertions.assertThrows(RuntimeException.class, () -> {
+            productService.handleProductInfoListFallback(throwable);
+        });
+    }
 }
