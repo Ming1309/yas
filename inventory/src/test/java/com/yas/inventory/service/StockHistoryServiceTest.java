@@ -77,7 +77,7 @@ class StockHistoryServiceTest {
 
         StockHistoryListVm result = stockHistoryService.getStockHistories(100L, 10L);
 
-        assertEquals(1, result.stockHistoryVms().size());
-        assertEquals("Note 1", result.stockHistoryVms().get(0).note());
+        assertEquals(1, result.data().size());
+        assertEquals("Note 1", result.data().get(0).note());
     }
 }

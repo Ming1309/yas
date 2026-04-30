@@ -101,6 +101,7 @@ class StockServiceTest {
         stock.setProductId(1L);
         stock.setQuantity(5L);
         stock.setReservedQuantity(0L);
+        stock.setWarehouse(warehouse);
         when(stockRepository.findByWarehouseIdAndProductIdIn(100L, List.of(1L)))
             .thenReturn(List.of(stock));
 
@@ -138,10 +139,57 @@ class StockServiceTest {
 
         Stock stock = new Stock();
         stock.setId(10L);
-        stock.setQuantity(10L);
+        stock.setQuantity(-20L); // To trigger adjustedQuantity (-15) > stock.getQuantity() (-20)
 
         when(stockRepository.findAllById(List.of(10L))).thenReturn(List.of(stock));
 
         assertThrows(BadRequestException.class, () -> stockService.updateProductQuantityInStock(requestBody));
+    }
+
+    @Test
+    void updateProductQuantityInStock_whenQuantityIsNull_shouldUseZero() {
+        StockQuantityVm sqVm = new StockQuantityVm(10L, null, "Note");
+        StockQuantityUpdateVm requestBody = new StockQuantityUpdateVm(List.of(sqVm));
+
+        Stock stock = new Stock();
+        stock.setId(10L);
+        stock.setQuantity(10L);
+        stock.setProductId(1L);
+
+        when(stockRepository.findAllById(List.of(10L))).thenReturn(List.of(stock));
+        doNothing().when(stockHistoryService).createStockHistories(anyList(), anyList());
+        doNothing().when(productService).updateProductQuantity(anyList());
+
+        stockService.updateProductQuantityInStock(requestBody);
+
+        assertEquals(10L, stock.getQuantity()); // 10 + 0
+    }
+
+    @Test
+    void updateProductQuantityInStock_whenStockQuantityVmNotFound_shouldContinue() {
+        StockQuantityVm sqVm = new StockQuantityVm(99L, 5L, "Note"); // Different ID
+        StockQuantityUpdateVm requestBody = new StockQuantityUpdateVm(List.of(sqVm));
+
+        Stock stock = new Stock();
+        stock.setId(10L);
+        stock.setQuantity(10L);
+
+        when(stockRepository.findAllById(List.of(99L))).thenReturn(List.of(stock));
+
+        stockService.updateProductQuantityInStock(requestBody);
+
+        assertEquals(10L, stock.getQuantity()); // Remains unchanged
+    }
+
+    @Test
+    void updateProductQuantityInStock_whenStocksEmpty_shouldNotUpdate() {
+        StockQuantityVm sqVm = new StockQuantityVm(10L, 5L, "Note");
+        StockQuantityUpdateVm requestBody = new StockQuantityUpdateVm(List.of(sqVm));
+
+        when(stockRepository.findAllById(List.of(10L))).thenReturn(List.of());
+
+        stockService.updateProductQuantityInStock(requestBody);
+
+        verify(stockRepository).saveAll(List.of());
     }
 }
