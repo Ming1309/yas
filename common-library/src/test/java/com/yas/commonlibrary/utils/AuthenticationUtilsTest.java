@@ -45,8 +45,7 @@ class AuthenticationUtilsTest {
 
     @Test
     void extractUserId_WhenAnonymous_ShouldThrowAccessDeniedException() {
-        AnonymousAuthenticationToken anonymousAuth = new AnonymousAuthenticationToken(
-                "key", "anonymousUser", Collections.emptyList());
+        AnonymousAuthenticationToken anonymousAuth = mock(AnonymousAuthenticationToken.class);
         when(securityContext.getAuthentication()).thenReturn(anonymousAuth);
 
         assertThrows(AccessDeniedException.class, AuthenticationUtils::extractUserId);
