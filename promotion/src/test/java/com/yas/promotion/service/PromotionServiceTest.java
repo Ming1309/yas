@@ -19,6 +19,14 @@ import com.yas.promotion.viewmodel.PromotionDetailVm;
 import com.yas.promotion.viewmodel.PromotionListVm;
 import com.yas.promotion.viewmodel.PromotionPostVm;
 import com.yas.promotion.viewmodel.PromotionVerifyVm;
+import com.yas.promotion.viewmodel.PromotionPutVm;
+import com.yas.promotion.viewmodel.PromotionUsageVm;
+import com.yas.promotion.model.PromotionUsage;
+import com.yas.promotion.repository.PromotionUsageRepository;
+import org.springframework.security.core.context.SecurityContext;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
+import org.springframework.security.oauth2.jwt.Jwt;
 import java.time.Instant;
 import java.time.ZonedDateTime;
 import java.time.temporal.ChronoUnit;
@@ -37,6 +45,8 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 class PromotionServiceTest {
     @Autowired
     private PromotionRepository promotionRepository;
+    @Autowired
+    private PromotionUsageRepository promotionUsageRepository;
     @MockitoBean
     private ProductService productService;
     @Autowired
@@ -135,6 +145,7 @@ class PromotionServiceTest {
 
     @AfterEach
     void tearDown() {
+        promotionUsageRepository.deleteAll();
         promotionRepository.deleteAll();
     }
 
@@ -348,5 +359,97 @@ class PromotionServiceTest {
                 2L
             )
         );
+    }
+
+    @Test
+    void updatePromotion_ThenSuccess() {
+        PromotionPutVm promotionPutVm = PromotionPutVm.builder()
+                .id(promotion1.getId())
+                .name("Updated Promotion 1")
+                .slug("updated-promotion-1")
+                .description("Updated Description 1")
+                .couponCode("code1-updated")
+                .discountType(DiscountType.FIXED)
+                .discountAmount(500L)
+                .discountPercentage(0L)
+                .isActive(true)
+                .startDate(Date.from(Instant.now().minus(10, ChronoUnit.DAYS)))
+                .endDate(Date.from(Instant.now().plus(20, ChronoUnit.DAYS)))
+                .applyTo(ApplyTo.PRODUCT)
+                .productIds(List.of(1L, 2L))
+                .build();
+
+        PromotionDetailVm result = promotionService.updatePromotion(promotionPutVm);
+        assertEquals("updated-promotion-1", result.slug());
+        assertEquals("Updated Promotion 1", result.name());
+        assertEquals("code1-updated", result.couponCode());
+        assertEquals(500L, result.discountAmount());
+    }
+
+    @Test
+    void updatePromotion_WhenNotFound_ThenNotFoundExceptionThrown() {
+        PromotionPutVm promotionPutVm = PromotionPutVm.builder()
+                .id(999L)
+                .build();
+        var exception = assertThrows(NotFoundException.class, () -> promotionService.updatePromotion(promotionPutVm));
+        assertEquals(String.format(Constants.ErrorCode.PROMOTION_NOT_FOUND, 999L), exception.getMessage());
+    }
+
+    @Test
+    void deletePromotion_ThenSuccess() {
+        Long id = promotion1.getId();
+        promotionService.deletePromotion(id);
+        var result = promotionRepository.findById(id);
+        assertEquals(true, result.isEmpty());
+    }
+
+    @Test
+    void deletePromotion_WhenInUse_ThenBadRequestExceptionThrown() {
+        Long id = promotion1.getId();
+        PromotionUsage usage = PromotionUsage.builder()
+                .promotion(promotion1)
+                .userId("user1")
+                .build();
+        promotionUsageRepository.save(usage);
+
+        var exception = assertThrows(BadRequestException.class, () -> promotionService.deletePromotion(id));
+        assertEquals(String.format("Can't delete promotion %s because it is in use", id), exception.getMessage());
+    }
+
+    @Test
+    void updateUsagePromotion_ThenSuccess() {
+        Jwt jwt = Mockito.mock(Jwt.class);
+        Mockito.when(jwt.getSubject()).thenReturn("user1");
+        JwtAuthenticationToken jwtAuth = new JwtAuthenticationToken(jwt);
+        SecurityContext securityContext = Mockito.mock(SecurityContext.class);
+        Mockito.when(securityContext.getAuthentication()).thenReturn(jwtAuth);
+        SecurityContextHolder.setContext(securityContext);
+
+        try {
+            PromotionUsageVm usageVm = new PromotionUsageVm("code1", 1L, "user1", 100L);
+            int initialUsageCount = promotion1.getUsageCount();
+
+            promotionService.updateUsagePromotion(List.of(usageVm));
+
+            var promotionOpt = promotionRepository.findById(promotion1.getId());
+            assertEquals(initialUsageCount + 1, promotionOpt.get().getUsageCount());
+
+            var usageRecord = promotionUsageRepository.findAll().stream()
+                    .filter(u -> u.getPromotion().getId().equals(promotion1.getId()))
+                    .findFirst();
+            assertEquals(true, usageRecord.isPresent());
+            assertEquals(1L, usageRecord.get().getProductId());
+            assertEquals(100L, usageRecord.get().getOrderId());
+        } finally {
+            SecurityContextHolder.clearContext();
+        }
+    }
+
+    @Test
+    void updateUsagePromotion_WhenPromotionNotFound_ThenNotFoundExceptionThrown() {
+        PromotionUsageVm usageVm = new PromotionUsageVm("wrong-code", 1L, "user1", 100L);
+
+        var exception = assertThrows(NotFoundException.class, () -> promotionService.updateUsagePromotion(List.of(usageVm)));
+        assertEquals("Promotion wrong-code is not found", exception.getMessage());
     }
 }
