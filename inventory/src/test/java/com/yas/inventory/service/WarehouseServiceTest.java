@@ -65,10 +65,10 @@ class WarehouseServiceTest {
         warehouse.setAddressId(10L);
 
         warehousePostVm = new WarehousePostVm(
-            "Warehouse 1", "John", "123", "Line 1", "Line 2", "City", "Zip", 1L, 1L, 1L);
+            "WH-01", "Warehouse 1", "John", "123", "Line 1", "Line 2", "City", "Zip", 1L, 1L, 1L);
 
         addressDetailVm = new AddressDetailVm(
-            10L, "John", "123", "Line 1", "Line 2", "City", "Zip", 1L, 1L, 1L);
+            10L, "John", "123", "Line 1", "Line 2", "City", "Zip", 1L, "District", 1L, "State", 1L, "Country");
     }
 
     @Test
@@ -90,7 +90,21 @@ class WarehouseServiceTest {
 
         List<ProductInfoVm> result = warehouseService.getProductWarehouse(1L, "Prod", "SKU", FilterExistInWhSelection.YES);
         assertEquals(1, result.size());
-        assertEquals(true, result.get(0).isAllowedToOrder()); // because 100L is in productIds
+        assertEquals(true, result.get(0).existInWh()); // check existInWh
+    }
+
+    @Test
+    void getProductWarehouse_whenProductIdsEmpty_shouldReturnDirectly() {
+        List<Long> productIds = List.of();
+        when(stockRepository.getProductIdsInWarehouse(1L)).thenReturn(productIds);
+        
+        ProductInfoVm productInfoVm = new ProductInfoVm(100L, "Prod", "SKU", false);
+        when(productService.filterProducts("Prod", "SKU", productIds, FilterExistInWhSelection.YES))
+            .thenReturn(List.of(productInfoVm));
+
+        List<ProductInfoVm> result = warehouseService.getProductWarehouse(1L, "Prod", "SKU", FilterExistInWhSelection.YES);
+        assertEquals(1, result.size());
+        assertEquals(false, result.get(0).existInWh()); 
     }
 
     @Test
@@ -118,7 +132,7 @@ class WarehouseServiceTest {
     @Test
     void create_whenValid_shouldCreateWarehouse() {
         when(warehouseRepository.existsByName("Warehouse 1")).thenReturn(false);
-        AddressVm addressVm = new AddressVm(10L, "John", "123", "Line 1", "Line 2", "City", "Zip", 1L, 1L, 1L);
+        AddressVm addressVm = new AddressVm(10L, "John", "123", "Line 1", "City", "Zip", 1L, 1L, 1L);
         when(locationService.createAddress(any())).thenReturn(addressVm);
         when(warehouseRepository.save(any(Warehouse.class))).thenReturn(warehouse);
 
