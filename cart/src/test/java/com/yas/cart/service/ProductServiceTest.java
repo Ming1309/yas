@@ -178,9 +178,10 @@ class ProductServiceTest {
     }
 
     @Test
-    void handleProductThumbnailFallback_ReturnEmptyList() throws Throwable {
+    void handleProductThumbnailFallback_ShouldThrowException() {
         Throwable throwable = new RuntimeException("Test exception");
-        List<ProductThumbnailVm> result = productService.handleProductThumbnailFallback(throwable);
-        assertThat(result).isEmpty();
+        org.junit.jupiter.api.Assertions.assertThrows(RuntimeException.class, () -> {
+            productService.handleProductThumbnailFallback(throwable);
+        });
     }
 }
