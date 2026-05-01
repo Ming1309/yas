@@ -4,11 +4,9 @@ on:
   schedule:
     - cron: "0 0 * * *"
   push:
-    branches:
-      - main
+    branches: ["**"]
   pull_request:
-    branches:
-      - main
+    branches: ["**"]
 
 permissions:
   contents: read
@@ -16,7 +14,7 @@ permissions:
   security-events: write
 
 jobs:
-  check:
+  gitleaks:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
