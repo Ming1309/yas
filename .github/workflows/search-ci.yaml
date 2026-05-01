@@ -38,11 +38,11 @@ jobs:
       - name: Setup JDK environment
         uses: ./.github/workflows/actions
 
-      - name: Run Maven Tests and Build
-        run: mvn clean install -pl search -am
+      - name: Run Maven Tests
+        run: mvn test -pl search -am --batch-mode --no-transfer-progress
       - name: Run Maven Checkstyle
         if: ${{ env.FROM_ORIGINAL_REPOSITORY == 'true' }}
-        run: mvn checkstyle:checkstyle -pl search -am -Dcheckstyle.output.file=search-checkstyle-result.xml
+        run: mvn package checkstyle:checkstyle -pl search -am -DskipTests -Djacoco.skip=true --batch-mode --no-transfer-progress -Dcheckstyle.output.file=search-checkstyle-result.xml
       - name: Upload Checkstyle Result
         if: ${{ env.FROM_ORIGINAL_REPOSITORY == 'true' }}
         uses: jwgmeligmeyling/checkstyle-github-action@master
@@ -70,7 +70,7 @@ jobs:
         if: ${{ env.FROM_ORIGINAL_REPOSITORY == 'true' }}
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-        run: mvn org.sonarsource.scanner.maven:sonar-maven-plugin:sonar -f search
+        run: mvn package org.sonarsource.scanner.maven:sonar-maven-plugin:sonar -pl search -am -DskipTests -Djacoco.skip=true --batch-mode --no-transfer-progress
       - name: OWASP Dependency Check
         if: ${{ env.FROM_ORIGINAL_REPOSITORY == 'true' }}
         uses: dependency-check/Dependency-Check_Action@main
