@@ -113,6 +113,9 @@ jobs:
           if-no-files-found: warn
           retention-days: 14
 
+      - name: Enforce JaCoCo Coverage Threshold
+        run: mvn jacoco:check -pl product --batch-mode --no-transfer-progress
+
   # ============================================================================
   # PHASE 2: BUILD - Build Docker image and push to registry
   # ============================================================================
