@@ -26,6 +26,7 @@ jobs:
     permissions:
       contents: read
       checks: write
+      pull-requests: write
     env:
       FROM_ORIGINAL_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name == github.repository || github.ref == 'refs/heads/main' }}
     steps:
@@ -37,11 +38,11 @@ jobs:
       - name: Setup JDK environment
         uses: ./.github/workflows/actions
 
-      - name: Run Maven Tests and Build
-        run: mvn clean install -pl product -am
+      - name: Run Maven Tests
+        run: mvn test -pl product -am --batch-mode --no-transfer-progress
       - name: Run Maven Checkstyle
         if: ${{ env.FROM_ORIGINAL_REPOSITORY == 'true' }}
-        run: mvn checkstyle:checkstyle -pl product -am -Dcheckstyle.output.file=product-checkstyle-result.xml
+        run: mvn package checkstyle:checkstyle -pl product -am -DskipTests -Djacoco.skip=true --batch-mode --no-transfer-progress -Dcheckstyle.output.file=product-checkstyle-result.xml
       - name: Upload Checkstyle Result
         if: ${{ env.FROM_ORIGINAL_REPOSITORY == 'true' }}
         uses: jwgmeligmeyling/checkstyle-github-action@master
@@ -69,7 +70,7 @@ jobs:
         if: ${{ env.FROM_ORIGINAL_REPOSITORY == 'true' }}
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-        run: mvn org.sonarsource.scanner.maven:sonar-maven-plugin:sonar -f product
+        run: mvn package org.sonarsource.scanner.maven:sonar-maven-plugin:sonar -pl product -am -DskipTests -Djacoco.skip=true --batch-mode --no-transfer-progress
       - name: OWASP Dependency Check
         if: ${{ env.FROM_ORIGINAL_REPOSITORY == 'true' }}
         uses: dependency-check/Dependency-Check_Action@main
