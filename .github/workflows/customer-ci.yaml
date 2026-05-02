@@ -38,8 +38,11 @@ jobs:
       - name: Setup JDK environment
         uses: ./.github/workflows/actions
 
+      - name: Install common-library for customer tests
+        run: mvn clean install -pl common-library -DskipTests
+
       - name: Run Maven Tests and Build
-        run: mvn clean verify -pl customer -am
+        run: mvn clean verify -pl customer
 
       - name: Gitleaks Secret Scan
         if: ${{ env.FROM_ORIGINAL_REPOSITORY == 'true' }}
