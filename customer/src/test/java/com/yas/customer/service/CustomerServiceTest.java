@@ -196,6 +196,17 @@ class CustomerServiceTest {
     }
 
     @Test
+    void testDeleteCustomer_isUserNotFound_ThrowNotFoundException() {
+        UserResource userResource = mock(UserResource.class);
+        when(usersResource.get(USER_NAME)).thenReturn(userResource);
+        when(userResource.toRepresentation()).thenReturn(null);
+
+        NotFoundException thrown = assertThrows(NotFoundException.class,
+            () -> customerService.deleteCustomer(USER_NAME));
+        assertTrue(thrown.getMessage().contains("User not found"));
+    }
+
+    @Test
     void testGetCustomerByEmail_isNormalCase_returnCustomerAdminVm() {
         when(usersResource.search(VALID_EMAIL, true)).thenReturn(getUserRepresentations());
         CustomerAdminVm adminVm = customerService.getCustomerByEmail(VALID_EMAIL);
