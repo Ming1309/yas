@@ -106,11 +106,14 @@ jobs:
           path: "**/customer-checkstyle-result.xml"
       - name: Test Results
         uses: dorny/test-reporter@v1
-        if: ${{ env.FROM_ORIGINAL_REPOSITORY == 'true' && (success() || failure()) && hashFiles('customer/**/target/surefire-reports/TEST-*.xml', 'customer/**/target/failsafe-reports/TEST-*.xml') != '' }}
+        if: ${{ env.FROM_ORIGINAL_REPOSITORY == 'true' && (success() || failure()) }}
         with:
           name: Customer-Service-Unit-Test-Results
-          path: "customer/**/*-reports/TEST*.xml"
+          path: |
+            customer/target/surefire-reports/TEST-*.xml
+            customer/target/failsafe-reports/TEST-*.xml
           reporter: java-junit
+          fail-on-error: false
 
       - name: Upload JUnit Test Results
         uses: actions/upload-artifact@v4
