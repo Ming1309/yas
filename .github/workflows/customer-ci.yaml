@@ -26,6 +26,7 @@ jobs:
     permissions:
       contents: read
       checks: write
+      security-events: write
     env:
       FROM_ORIGINAL_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name == github.repository || github.ref == 'refs/heads/main' }}
     steps:
@@ -39,6 +40,49 @@ jobs:
 
       - name: Run Maven Tests and Build
         run: mvn clean verify -pl customer -am
+
+      - name: Gitleaks Secret Scan
+        if: ${{ env.FROM_ORIGINAL_REPOSITORY == 'true' }}
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_CONFIG: ${{ github.workspace }}/gitleaks.toml
+
+      - name: Ensure Gitleaks SARIF exists
+        if: ${{ env.FROM_ORIGINAL_REPOSITORY == 'true' }}
+        run: |
+          if [ ! -f results.sarif ]; then
+            echo '{"version":"2.1.0","runs":[]}' > results.sarif
+          fi
+
+      - name: Check Gitleaks SARIF has results
+        id: sarif_check
+        if: ${{ env.FROM_ORIGINAL_REPOSITORY == 'true' }}
+        run: |
+          if [ -f results.sarif ]; then
+            if command -v jq > /dev/null 2>&1; then
+              runs=$(jq '.runs | length' results.sarif || echo 0)
+              if [ "$runs" -gt 0 ]; then
+                echo "has_runs=true" >> $GITHUB_OUTPUT
+              else
+                echo "has_runs=false" >> $GITHUB_OUTPUT
+              fi
+            else
+              if grep -q '"runs"[[:space:]]*:\s*\[[^]]\+' results.sarif; then
+                echo "has_runs=true" >> $GITHUB_OUTPUT
+              else
+                echo "has_runs=false" >> $GITHUB_OUTPUT
+              fi
+            fi
+          else
+            echo "has_runs=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Upload Gitleaks SARIF
+        if: ${{ env.FROM_ORIGINAL_REPOSITORY == 'true' && steps.sarif_check.outputs.has_runs == 'true' }}
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: results.sarif
 
       - name: Verify Coverage Report Path
         if: ${{ always() }}
