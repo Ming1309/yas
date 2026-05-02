@@ -38,11 +38,14 @@ jobs:
       - name: Setup JDK environment
         uses: ./.github/workflows/actions
 
+      - name: Install dependencies (skip common-library tests)
+        run: mvn install -pl product -am -DskipTests -Djacoco.skip=true --batch-mode --no-transfer-progress
+
       - name: Run Maven Tests
-        run: mvn test -pl product -am --batch-mode --no-transfer-progress
+        run: mvn test -f product --batch-mode --no-transfer-progress
       - name: Run Maven Checkstyle
         if: ${{ env.FROM_ORIGINAL_REPOSITORY == 'true' }}
-        run: mvn package checkstyle:checkstyle -pl product -am -DskipTests -Djacoco.skip=true --batch-mode --no-transfer-progress -Dcheckstyle.output.file=product-checkstyle-result.xml
+        run: mvn checkstyle:checkstyle -f product -Dcheckstyle.output.file=product-checkstyle-result.xml --batch-mode --no-transfer-progress
       - name: Upload Checkstyle Result
         if: ${{ env.FROM_ORIGINAL_REPOSITORY == 'true' }}
         uses: jwgmeligmeyling/checkstyle-github-action@master
@@ -70,7 +73,7 @@ jobs:
         if: ${{ env.FROM_ORIGINAL_REPOSITORY == 'true' }}
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-        run: mvn package org.sonarsource.scanner.maven:sonar-maven-plugin:sonar -pl product -am -DskipTests -Djacoco.skip=true --batch-mode --no-transfer-progress
+        run: mvn org.sonarsource.scanner.maven:sonar-maven-plugin:sonar -f product --batch-mode --no-transfer-progress
       - name: OWASP Dependency Check
         if: ${{ env.FROM_ORIGINAL_REPOSITORY == 'true' }}
         uses: dependency-check/Dependency-Check_Action@main
@@ -114,7 +117,7 @@ jobs:
           retention-days: 14
 
       - name: Enforce JaCoCo Coverage Threshold
-        run: mvn jacoco:check -pl product --batch-mode --no-transfer-progress
+        run: mvn jacoco:check -f product --batch-mode --no-transfer-progress
 
   # ============================================================================
   # PHASE 2: BUILD - Build Docker image and push to registry
