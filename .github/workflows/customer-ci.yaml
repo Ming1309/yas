@@ -38,6 +38,9 @@ jobs:
       - name: Setup JDK environment
         uses: ./.github/workflows/actions
 
+      - name: Install root POM for customer tests
+        run: mvn clean install -N -DskipTests
+
       - name: Install common-library for customer tests
         run: mvn clean install -pl common-library -DskipTests
 
