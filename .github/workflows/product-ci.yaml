@@ -117,7 +117,7 @@ jobs:
           retention-days: 14
 
       - name: Enforce JaCoCo Coverage Threshold
-        run: mvn jacoco:check -f product --batch-mode --no-transfer-progress
+        run: mvn jacoco:check@check -f product --batch-mode --no-transfer-progress
 
   # ============================================================================
   # PHASE 2: BUILD - Build Docker image and push to registry
