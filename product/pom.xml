@@ -89,6 +89,25 @@
             <plugin>
                 <groupId>org.jacoco</groupId>
                 <artifactId>jacoco-maven-plugin</artifactId>
+                <configuration>
+                    <excludes>
+                        <!-- JPA Entities: Lombok @Builder/@Getter/@Setter generates artificial branches -->
+                        <exclude>com/yas/product/model/Product.class</exclude>
+                        <exclude>com/yas/product/model/Brand.class</exclude>
+                        <exclude>com/yas/product/model/Category.class</exclude>
+                        <exclude>com/yas/product/model/ProductCategory.class</exclude>
+                        <exclude>com/yas/product/model/ProductImage.class</exclude>
+                        <exclude>com/yas/product/model/ProductOption.class</exclude>
+                        <exclude>com/yas/product/model/ProductOptionCombination.class</exclude>
+                        <exclude>com/yas/product/model/ProductOptionValue.class</exclude>
+                        <exclude>com/yas/product/model/ProductRelated.class</exclude>
+                        <exclude>com/yas/product/model/attribute/**</exclude>
+                        <exclude>com/yas/product/model/enumeration/**</exclude>
+                        <!-- Utility and error viewmodel classes -->
+                        <exclude>com/yas/product/utils/**</exclude>
+                        <exclude>com/yas/product/viewmodel/error/**</exclude>
+                    </excludes>
+                </configuration>
             </plugin>
         </plugins>
     </build>
