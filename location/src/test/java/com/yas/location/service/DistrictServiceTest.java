@@ -1,6 +1,7 @@
 package com.yas.location.service;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import com.yas.location.LocationApplication;
 import com.yas.location.model.Country;
@@ -58,5 +59,35 @@ public class DistrictServiceTest {
         generateTestData();
         List<DistrictGetVm> districtGetVm = districtService.getList(district1.getId());
         assertNotNull(districtGetVm);
+    }
+
+    @Test
+    void getDistrict_WithInvalidStateProvinceId_ReturnsEmptyList() {
+        List<DistrictGetVm> districtGetVm = districtService.getList(99999L);
+        assertNotNull(districtGetVm);
+        assertEquals(0, districtGetVm.size());
+    }
+
+    @Test
+    void getDistrict_MultipleDistrictsInStateProvince_ReturnsAllDistricts() {
+        country = countryRepository.save(Country.builder()
+            .name("country-1")
+            .build());
+        stateOrProvince = stateOrProvinceRepository.save(StateOrProvince.builder()
+            .name("state-or-province")
+            .country(country)
+            .build());
+        districtRepository.save(District.builder()
+            .name("district-1")
+            .stateProvince(stateOrProvince)
+            .build());
+        districtRepository.save(District.builder()
+            .name("district-2")
+            .stateProvince(stateOrProvince)
+            .build());
+        
+        List<DistrictGetVm> districtGetVms = districtService.getList(stateOrProvince.getId());
+        assertNotNull(districtGetVms);
+        assertEquals(2, districtGetVms.size());
     }
 }
