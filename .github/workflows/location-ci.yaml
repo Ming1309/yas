@@ -53,10 +53,10 @@ jobs:
           path: "**/location-checkstyle-result.xml"
       - name: Test Results
         uses: dorny/test-reporter@v1
-        if: ${{ env.FROM_ORIGINAL_REPOSITORY == 'true' && (success() || failure()) && hashFiles('location/target/surefire-reports/TEST-*.xml') != '' }}
+        if: ${{ env.FROM_ORIGINAL_REPOSITORY == 'true' && (success() || failure()) && hashFiles('location/**/target/surefire-reports/TEST-*.xml', 'location/**/target/failsafe-reports/TEST-*.xml') != '' }}
         with:
           name: Location-Service-Unit-Test-Results
-          path: "location/target/surefire-reports/TEST-*.xml"
+          path: "location/**/*-reports/TEST*.xml"
           reporter: java-junit
 
       - name: Upload JUnit Test Results
