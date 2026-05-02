@@ -124,6 +124,22 @@ class CustomerServiceTest {
     }
 
     @Test
+    void testGetCustomers_withDisabledUser_filtersOutDisabledUsers() {
+
+        List<UserRepresentation> userRepresentations = getUserRepresentations();
+        userRepresentations.get(1).setEnabled(false);
+
+        when(usersResource.search(any(), anyInt(), anyInt())).thenReturn(userRepresentations);
+        when(usersResource.count()).thenReturn(2);
+
+        CustomerListVm customerListVm = customerService.getCustomers(1);
+
+        assertThat(customerListVm.totalUser()).isEqualTo(1);
+        assertThat(customerListVm.totalPage()).isEqualTo(1);
+        assertThat(customerListVm.customers()).hasSize(1);
+    }
+
+    @Test
     void testGetCustomers_hasError_throwForbiddenException() {
 
         when(usersResource.search(any(), anyInt(), anyInt()))
