@@ -318,4 +318,25 @@ class CustomerServiceTest {
 
         assertThrows(DuplicatedException.class, () -> customerService.create(customerPostVm));
     }
+
+    @Test
+    void testCreateUser_whenEmailAlreadyExisted_thenThrowDuplicateException() {
+        CustomerPostVm customerPostVm = new CustomerPostVm("user1", "test@gmail.com", "John",
+            "Doe", "123", "ADMIN");
+
+        when(realmResource.users().search(anyString(), anyBoolean())).thenReturn(Collections.emptyList());
+        when(realmResource.users().search(any(), any(), any(), anyString(), any(), any()))
+            .thenReturn(Collections.singletonList(mock(UserRepresentation.class)));
+
+        assertThrows(DuplicatedException.class, () -> customerService.create(customerPostVm));
+    }
+
+    @Test
+    void testCreatePasswordCredentials_whenPasswordProvided_returnCredentialRepresentation() {
+        CredentialRepresentation credential = CustomerService.createPasswordCredentials("secret");
+
+        assertThat(credential.getType()).isEqualTo(CredentialRepresentation.PASSWORD);
+        assertThat(credential.getValue()).isEqualTo("secret");
+        assertThat(credential.isTemporary()).isFalse();
+    }
 }
