@@ -213,4 +213,86 @@ class CategoryServiceTest {
         assertEquals(1, result.size());
         assertEquals("name", result.get(0));
     }
+
+    // ── getCategoryById missing branches ─────────────────────────────────────
+
+    @Test
+    void getCategoryById_whenImageIdNull_returnsNullCategoryImage() {
+        category.setImageId(null);
+        when(categoryRepository.findById(1L)).thenReturn(Optional.of(category));
+
+        CategoryGetDetailVm result = categoryService.getCategoryById(1L);
+
+        assertNotNull(result);
+        assertNull(result.categoryImage());
+    }
+
+    @Test
+    void getCategoryById_whenParentExists_returnsParentId() {
+        Category parent = new Category();
+        parent.setId(10L);
+        category.setParent(parent);
+        when(categoryRepository.findById(1L)).thenReturn(Optional.of(category));
+        when(mediaService.getMedia(1L)).thenReturn(noFileMediaVm);
+
+        CategoryGetDetailVm result = categoryService.getCategoryById(1L);
+
+        assertEquals(10L, result.parentId());
+    }
+
+    // ── getCategories missing branches ───────────────────────────────────────
+
+    @Test
+    void getCategories_whenImageIdNull_returnsCategoryWithNullImage() {
+        category.setImageId(null);
+        when(categoryRepository.findByNameContainingIgnoreCase("name")).thenReturn(List.of(category));
+
+        List<CategoryGetVm> result = categoryService.getCategories("name");
+
+        assertEquals(1, result.size());
+        assertNull(result.get(0).categoryImage());
+    }
+
+    @Test
+    void getCategories_whenCategoryHasParent_returnsParentId() {
+        Category parent = new Category();
+        parent.setId(5L);
+        category.setParent(parent);
+        when(categoryRepository.findByNameContainingIgnoreCase("name")).thenReturn(List.of(category));
+        when(mediaService.getMedia(1L)).thenReturn(noFileMediaVm);
+
+        List<CategoryGetVm> result = categoryService.getCategories("name");
+
+        assertEquals(1, result.size());
+        assertEquals(5L, result.get(0).parentId());
+    }
+
+    // ── update missing branches ──────────────────────────────────────────────
+
+    @Test
+    void update_whenParentNotFound_throwsBadRequestException() {
+        categoryPostVm = new CategoryPostVm("name", "slug", "desc", 99L, "metaK", "metaD", (short) 1, true, 1L);
+        when(categoryRepository.findExistedName("name", 1L)).thenReturn(null);
+        when(categoryRepository.findById(1L)).thenReturn(Optional.of(category));
+        when(categoryRepository.findById(99L)).thenReturn(Optional.empty());
+
+        assertThrows(BadRequestException.class, () -> categoryService.update(categoryPostVm, 1L));
+    }
+
+    @Test
+    void checkParent_whenParentHasGrandparentWithSameId_throwsBadRequestException() {
+        // category id=1, parentCategory id=2, grandparent id=1 → recursive checkParent detects cycle
+        Category grandparent = new Category();
+        grandparent.setId(1L); // same as category.getId()
+        Category parent = new Category();
+        parent.setId(2L);
+        parent.setParent(grandparent);
+
+        categoryPostVm = new CategoryPostVm("name", "slug", "desc", 2L, "metaK", "metaD", (short) 1, true, 1L);
+        when(categoryRepository.findExistedName("name", 1L)).thenReturn(null);
+        when(categoryRepository.findById(1L)).thenReturn(Optional.of(category));
+        when(categoryRepository.findById(2L)).thenReturn(Optional.of(parent));
+
+        assertThrows(BadRequestException.class, () -> categoryService.update(categoryPostVm, 1L));
+    }
 }

@@ -723,4 +723,260 @@ class ProductServiceTest {
         productService.createProduct(vm);
         verify(brandRepository, times(1)).findById(5L);
     }
+
+    // ── getFeaturedProductsById ──────────────────────────────────────────────
+
+    @Test
+    void getFeaturedProductsById_whenThumbnailPresent_returnsOwnThumbnail() {
+        Product p = Product.builder().id(10L).name("P").slug("p").price(50.0).build();
+        p.setThumbnailMediaId(1L);
+        when(productRepository.findAllByIdIn(anyList())).thenReturn(List.of(p));
+        when(mediaService.getMedia(1L)).thenReturn(new NoFileMediaVm(1L, "", "", "", "thumb-url"));
+
+        List<ProductThumbnailGetVm> result = productService.getFeaturedProductsById(List.of(10L));
+
+        assertEquals(1, result.size());
+        assertEquals("thumb-url", result.get(0).thumbnailUrl());
+    }
+
+    @Test
+    void getFeaturedProductsById_whenThumbnailEmptyAndHasParent_usesParentThumbnail() {
+        Product parent = Product.builder().id(5L).build();
+        parent.setThumbnailMediaId(2L);
+        Product child = Product.builder().id(10L).name("Child").slug("child").price(50.0).build();
+        child.setThumbnailMediaId(3L);
+        child.setParent(parent);
+
+        when(productRepository.findAllByIdIn(anyList())).thenReturn(List.of(child));
+        when(mediaService.getMedia(3L)).thenReturn(new NoFileMediaVm(3L, "", "", "", "")); // empty
+        when(productRepository.findById(5L)).thenReturn(Optional.of(parent));
+        when(mediaService.getMedia(2L)).thenReturn(new NoFileMediaVm(2L, "", "", "", "parent-thumb"));
+
+        List<ProductThumbnailGetVm> result = productService.getFeaturedProductsById(List.of(10L));
+
+        assertEquals(1, result.size());
+        assertEquals("parent-thumb", result.get(0).thumbnailUrl());
+    }
+
+    @Test
+    void getFeaturedProductsById_whenThumbnailEmptyParentNotFound_returnsEmptyUrl() {
+        Product parent = Product.builder().id(5L).build();
+        Product child = Product.builder().id(10L).name("Child").slug("child").price(50.0).build();
+        child.setThumbnailMediaId(3L);
+        child.setParent(parent);
+
+        when(productRepository.findAllByIdIn(anyList())).thenReturn(List.of(child));
+        when(mediaService.getMedia(3L)).thenReturn(new NoFileMediaVm(3L, "", "", "", ""));
+        when(productRepository.findById(5L)).thenReturn(Optional.empty());
+
+        List<ProductThumbnailGetVm> result = productService.getFeaturedProductsById(List.of(10L));
+
+        assertEquals(1, result.size());
+        assertEquals("", result.get(0).thumbnailUrl());
+    }
+
+    // ── getListFeaturedProducts ──────────────────────────────────────────────
+
+    @Test
+    void getListFeaturedProducts_returnsFeaturedProducts() {
+        Product p = Product.builder().id(1L).name("Featured").slug("featured").price(200.0).build();
+        p.setThumbnailMediaId(1L);
+        Page<Product> page = new PageImpl<>(List.of(p));
+        when(productRepository.getFeaturedProduct(any(Pageable.class))).thenReturn(page);
+        when(mediaService.getMedia(1L)).thenReturn(new NoFileMediaVm(1L, "", "", "", "featured-url"));
+
+        ProductFeatureGetVm result = productService.getListFeaturedProducts(0, 10);
+
+        assertEquals(1, result.productList().size());
+        assertEquals("featured-url", result.productList().get(0).thumbnailUrl());
+    }
+
+    // ── exportProducts ───────────────────────────────────────────────────────
+
+    @Test
+    void exportProducts_returnsExportingDetails() {
+        Brand brand = new Brand();
+        brand.setId(1L);
+        brand.setName("BrandX");
+        mainProduct.setBrand(brand);
+
+        when(productRepository.getExportingProducts(anyString(), anyString())).thenReturn(List.of(mainProduct));
+
+        List<ProductExportingDetailVm> result = productService.exportProducts("", "");
+
+        assertEquals(1, result.size());
+        assertEquals("Main Product", result.get(0).name());
+        assertEquals("BrandX", result.get(0).brandName());
+    }
+
+    // ── getRelatedProductsBackoffice ─────────────────────────────────────────
+
+    @Test
+    void getRelatedProductsBackoffice_whenNotFound_throwsNotFoundException() {
+        when(productRepository.findById(99L)).thenReturn(Optional.empty());
+        assertThrows(NotFoundException.class, () -> productService.getRelatedProductsBackoffice(99L));
+    }
+
+    @Test
+    void getRelatedProductsBackoffice_whenRelatedHasNoParent_returnsNullParentId() {
+        Product related = Product.builder().id(2L).name("Related").slug("related")
+                .price(30.0).isPublished(true).build();
+        ProductRelated pr = ProductRelated.builder().product(mainProduct).relatedProduct(related).build();
+        mainProduct.setRelatedProducts(List.of(pr));
+        when(productRepository.findById(1L)).thenReturn(Optional.of(mainProduct));
+
+        List<ProductListVm> result = productService.getRelatedProductsBackoffice(1L);
+
+        assertEquals(1, result.size());
+        assertNull(result.get(0).parentId());
+    }
+
+    @Test
+    void getRelatedProductsBackoffice_whenRelatedHasParent_includesParentId() {
+        Product parent = Product.builder().id(99L).build();
+        Product related = Product.builder().id(2L).name("Related").slug("related")
+                .price(30.0).isPublished(true).build();
+        related.setParent(parent);
+        ProductRelated pr = ProductRelated.builder().product(mainProduct).relatedProduct(related).build();
+        mainProduct.setRelatedProducts(List.of(pr));
+        when(productRepository.findById(1L)).thenReturn(Optional.of(mainProduct));
+
+        List<ProductListVm> result = productService.getRelatedProductsBackoffice(1L);
+
+        assertEquals(1, result.size());
+        assertEquals(99L, result.get(0).parentId());
+    }
+
+    // ── getRelatedProductsStorefront ─────────────────────────────────────────
+
+    @Test
+    void getRelatedProductsStorefront_returnsOnlyPublishedRelated() {
+        Product published = Product.builder().id(2L).name("Pub").slug("pub").price(20.0)
+                .isPublished(true).build();
+        published.setThumbnailMediaId(1L);
+        Product unpublished = Product.builder().id(3L).name("Unpub").slug("unpub").price(10.0)
+                .isPublished(false).build();
+
+        ProductRelated pr1 = ProductRelated.builder().product(mainProduct).relatedProduct(published).build();
+        ProductRelated pr2 = ProductRelated.builder().product(mainProduct).relatedProduct(unpublished).build();
+        Page<ProductRelated> page = new PageImpl<>(List.of(pr1, pr2));
+
+        when(productRepository.findById(1L)).thenReturn(Optional.of(mainProduct));
+        when(productRelatedRepository.findAllByProduct(any(Product.class), any(Pageable.class))).thenReturn(page);
+        when(mediaService.getMedia(1L)).thenReturn(new NoFileMediaVm(1L, "", "", "", "rel-url"));
+
+        ProductsGetVm result = productService.getRelatedProductsStorefront(1L, 0, 10);
+
+        assertEquals(1, result.productContent().size());
+        assertEquals("rel-url", result.productContent().get(0).thumbnailUrl());
+    }
+
+    @Test
+    void getRelatedProductsStorefront_whenNotFound_throwsNotFoundException() {
+        when(productRepository.findById(99L)).thenReturn(Optional.empty());
+        assertThrows(NotFoundException.class, () -> productService.getRelatedProductsStorefront(99L, 0, 10));
+    }
+
+    // ── simple list helpers ──────────────────────────────────────────────────
+
+    @Test
+    void getProductByIds_returnsMappedList() {
+        when(productRepository.findAllByIdIn(anyList())).thenReturn(List.of(mainProduct));
+        List<ProductListVm> result = productService.getProductByIds(List.of(1L));
+        assertEquals(1, result.size());
+        assertEquals("Main Product", result.get(0).name());
+    }
+
+    @Test
+    void getProductByCategoryIds_returnsMappedList() {
+        when(productRepository.findByCategoryIdsIn(anyList())).thenReturn(List.of(mainProduct));
+        List<ProductListVm> result = productService.getProductByCategoryIds(List.of(1L));
+        assertEquals(1, result.size());
+    }
+
+    @Test
+    void getProductByBrandIds_returnsMappedList() {
+        when(productRepository.findByBrandIdsIn(anyList())).thenReturn(List.of(mainProduct));
+        List<ProductListVm> result = productService.getProductByBrandIds(List.of(1L));
+        assertEquals(1, result.size());
+    }
+
+    @Test
+    void getProductsForWarehouse_returnsMappedList() {
+        when(productRepository.findProductForWarehouse(anyString(), anyString(), anyList(), anyString()))
+                .thenReturn(List.of(mainProduct));
+
+        List<ProductInfoVm> result = productService.getProductsForWarehouse("", "", List.of(),
+                FilterExistInWhSelection.ALL);
+
+        assertEquals(1, result.size());
+        assertEquals("Main Product", result.get(0).name());
+    }
+
+    // ── getProductCheckoutList ───────────────────────────────────────────────
+
+    @Test
+    void getProductCheckoutList_whenThumbnailPresent_setsThumbnailUrl() {
+        Brand brand = new Brand();
+        brand.setId(1L);
+        Product p = Product.builder().id(1L).name("Checkout").slug("checkout").price(100.0).build();
+        p.setBrand(brand);
+        p.setThumbnailMediaId(1L);
+        Page<Product> page = new PageImpl<>(List.of(p));
+
+        when(productRepository.findAllPublishedProductsByIds(anyList(), any(Pageable.class))).thenReturn(page);
+        when(mediaService.getMedia(1L)).thenReturn(new NoFileMediaVm(1L, "", "", "", "checkout-thumb"));
+
+        ProductGetCheckoutListVm result = productService.getProductCheckoutList(0, 10, List.of(1L));
+
+        assertEquals(1, result.productCheckoutListVms().size());
+        assertEquals("checkout-thumb", result.productCheckoutListVms().get(0).thumbnailUrl());
+    }
+
+    @Test
+    void getProductCheckoutList_whenThumbnailEmpty_returnsDefaultEmptyThumbnail() {
+        Brand brand = new Brand();
+        brand.setId(1L);
+        Product p = Product.builder().id(1L).name("Checkout2").slug("checkout2").price(100.0).build();
+        p.setBrand(brand);
+        p.setThumbnailMediaId(1L);
+        Page<Product> page = new PageImpl<>(List.of(p));
+
+        when(productRepository.findAllPublishedProductsByIds(anyList(), any(Pageable.class))).thenReturn(page);
+        when(mediaService.getMedia(1L)).thenReturn(new NoFileMediaVm(1L, "", "", "", ""));
+
+        ProductGetCheckoutListVm result = productService.getProductCheckoutList(0, 10, List.of(1L));
+
+        assertEquals(1, result.productCheckoutListVms().size());
+        assertEquals("", result.productCheckoutListVms().get(0).thumbnailUrl());
+    }
+
+    // ── stock tracking disabled branch ───────────────────────────────────────
+
+    @Test
+    void subtractStockQuantity_whenStockTrackingDisabled_doesNotChangeQuantity() {
+        mainProduct.setStockTrackingEnabled(false);
+        mainProduct.setStockQuantity(10L);
+        ProductQuantityPutVm putVm = new ProductQuantityPutVm(1L, 5L);
+        when(productRepository.findAllByIdIn(anyList())).thenReturn(List.of(mainProduct));
+
+        productService.subtractStockQuantity(List.of(putVm));
+
+        assertEquals(10L, mainProduct.getStockQuantity()); // unchanged
+    }
+
+    // ── setProductImages delete branch ───────────────────────────────────────
+
+    @Test
+    void setProductImages_whenImageRemoved_callsDeleteByImageIdInAndProductId() {
+        ProductImage existing = new ProductImage();
+        existing.setImageId(1L);
+        mainProduct.setProductImages(List.of(existing));
+
+        // new list doesn't include imageId=1 → it should be deleted
+        productService.setProductImages(List.of(2L), mainProduct);
+
+        verify(productImageRepository, times(1)).deleteByImageIdInAndProductId(anyList(), any());
+    }
 }
+
