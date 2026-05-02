@@ -26,6 +26,7 @@ jobs:
     permissions:
       contents: read
       checks: write
+      pull-requests: write
     env:
       FROM_ORIGINAL_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name == github.repository || github.ref == 'refs/heads/main' }}
     steps:
@@ -37,11 +38,14 @@ jobs:
       - name: Setup JDK environment
         uses: ./.github/workflows/actions
 
-      - name: Run Maven Tests and Build
-        run: mvn clean install -pl location -am
+      - name: Install dependencies (skip common-library tests)
+        run: mvn install -pl location -am -DskipTests -Djacoco.skip=true --batch-mode --no-transfer-progress
+
+      - name: Run Maven Tests
+        run: mvn test -f location --batch-mode --no-transfer-progress
       - name: Run Maven Checkstyle
         if: ${{ env.FROM_ORIGINAL_REPOSITORY == 'true' }}
-        run: mvn checkstyle:checkstyle -pl location -am -Dcheckstyle.output.file=location-checkstyle-result.xml
+        run: mvn checkstyle:checkstyle -f location -Dcheckstyle.output.file=location-checkstyle-result.xml --batch-mode --no-transfer-progress
       - name: Upload Checkstyle Result
         if: ${{ env.FROM_ORIGINAL_REPOSITORY == 'true' }}
         uses: jwgmeligmeyling/checkstyle-github-action@master
@@ -49,12 +53,11 @@ jobs:
           path: "**/location-checkstyle-result.xml"
       - name: Test Results
         uses: dorny/test-reporter@v1
-        if: ${{ env.FROM_ORIGINAL_REPOSITORY == 'true' && (success() || failure()) }}
+        if: ${{ env.FROM_ORIGINAL_REPOSITORY == 'true' && (success() || failure()) && hashFiles('location/**/target/surefire-reports/TEST-*.xml', 'location/**/target/failsafe-reports/TEST-*.xml') != '' }}
         with:
           name: Location-Service-Unit-Test-Results
-          path: "location/target/*-reports/TEST-*.xml"
+          path: "location/**/*-reports/TEST*.xml"
           reporter: java-junit
-          fail-on-error: false
 
       - name: Upload JUnit Test Results
         uses: actions/upload-artifact@v4
@@ -70,7 +73,7 @@ jobs:
         if: ${{ env.FROM_ORIGINAL_REPOSITORY == 'true' }}
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-        run: mvn org.sonarsource.scanner.maven:sonar-maven-plugin:sonar -f location
+        run: mvn org.sonarsource.scanner.maven:sonar-maven-plugin:sonar -f location --batch-mode --no-transfer-progress
       - name: OWASP Dependency Check
         if: ${{ env.FROM_ORIGINAL_REPOSITORY == 'true' }}
         uses: dependency-check/Dependency-Check_Action@main
@@ -112,6 +115,9 @@ jobs:
             location/target/site/jacoco-it/index.html
           if-no-files-found: warn
           retention-days: 14
+
+      - name: Enforce JaCoCo Coverage Threshold
+        run: mvn jacoco:check@check -f location --batch-mode --no-transfer-progress
 
   # ============================================================================
   # PHASE 2: BUILD - Build Docker image and push to registry
