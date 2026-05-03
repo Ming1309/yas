@@ -12,6 +12,8 @@ import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.attribute.PosixFilePermission;
+import java.util.Set;
 import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -120,16 +122,22 @@ class FileSystemRepositoryTest {
     }
 
     @Test
-    void testGetFile_whenPathIsDirectory_thenThrowsRuntimeException() throws IOException {
+    void testPersistFile_whenDirectoryIsNotAccessible_thenThrowsException() throws IOException {
         String filename = "test-file.png";
-        String filePathStr = Paths.get(TEST_URL, filename).toString();
+        byte[] content = "test-content".getBytes();
 
-        when(filesystemConfig.getDirectory()).thenReturn(TEST_URL);
+        Path directoryPath = Paths.get(TEST_URL);
+        Files.createDirectories(directoryPath);
+        Set<PosixFilePermission> originalPermissions = Files.getPosixFilePermissions(directoryPath);
+        Files.setPosixFilePermissions(directoryPath, Set.of());
 
-        Path filePath = Paths.get(filePathStr);
-        Files.createDirectories(filePath);
+        try {
+            when(filesystemConfig.getDirectory()).thenReturn(TEST_URL);
 
-        assertThrows(RuntimeException.class, () -> fileSystemRepository.getFile(filePathStr));
+            assertThrows(IllegalStateException.class, () -> fileSystemRepository.persistFile(filename, content));
+        } finally {
+            Files.setPosixFilePermissions(directoryPath, originalPermissions);
+        }
     }
 
 }
