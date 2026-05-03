@@ -11,6 +11,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.keycloak.admin.client.Keycloak;
 import org.keycloak.admin.client.resource.*;
+import org.keycloak.representations.idm.CredentialRepresentation;
 import org.keycloak.representations.idm.RoleRepresentation;
 import org.keycloak.representations.idm.UserRepresentation;
 import org.mockito.ArgumentCaptor;
@@ -123,6 +124,22 @@ class CustomerServiceTest {
     }
 
     @Test
+    void testGetCustomers_withDisabledUser_filtersOutDisabledUsers() {
+
+        List<UserRepresentation> userRepresentations = getUserRepresentations();
+        userRepresentations.get(1).setEnabled(false);
+
+        when(usersResource.search(any(), anyInt(), anyInt())).thenReturn(userRepresentations);
+        when(usersResource.count()).thenReturn(2);
+
+        CustomerListVm customerListVm = customerService.getCustomers(1);
+
+        assertThat(customerListVm.totalUser()).isEqualTo(1);
+        assertThat(customerListVm.totalPage()).isEqualTo(1);
+        assertThat(customerListVm.customers()).hasSize(1);
+    }
+
+    @Test
     void testGetCustomers_hasError_throwForbiddenException() {
 
         when(usersResource.search(any(), anyInt(), anyInt()))
@@ -176,6 +193,17 @@ class CustomerServiceTest {
         verify(userResource).update(argumentCaptor.capture());
         UserRepresentation actual = argumentCaptor.getValue();
         assertFalse(actual.isEnabled());
+    }
+
+    @Test
+    void testDeleteCustomer_isUserNotFound_ThrowNotFoundException() {
+        UserResource userResource = mock(UserResource.class);
+        when(usersResource.get(USER_NAME)).thenReturn(userResource);
+        when(userResource.toRepresentation()).thenReturn(null);
+
+        NotFoundException thrown = assertThrows(NotFoundException.class,
+            () -> customerService.deleteCustomer(USER_NAME));
+        assertTrue(thrown.getMessage().contains("User not found"));
     }
 
     @Test
@@ -317,5 +345,26 @@ class CustomerServiceTest {
             .thenReturn(Collections.singletonList(mock(UserRepresentation.class)));
 
         assertThrows(DuplicatedException.class, () -> customerService.create(customerPostVm));
+    }
+
+    @Test
+    void testCreateUser_whenEmailAlreadyExisted_thenThrowDuplicateException() {
+        CustomerPostVm customerPostVm = new CustomerPostVm("user1", "test@gmail.com", "John",
+            "Doe", "123", "ADMIN");
+
+        when(realmResource.users().search(anyString(), anyBoolean())).thenReturn(Collections.emptyList());
+        when(realmResource.users().search(any(), any(), any(), anyString(), any(), any()))
+            .thenReturn(Collections.singletonList(mock(UserRepresentation.class)));
+
+        assertThrows(DuplicatedException.class, () -> customerService.create(customerPostVm));
+    }
+
+    @Test
+    void testCreatePasswordCredentials_whenPasswordProvided_returnCredentialRepresentation() {
+        CredentialRepresentation credential = CustomerService.createPasswordCredentials("secret");
+
+        assertThat(credential.getType()).isEqualTo(CredentialRepresentation.PASSWORD);
+        assertThat(credential.getValue()).isEqualTo("secret");
+        assertThat(credential.isTemporary()).isFalse();
     }
 }
