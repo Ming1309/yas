@@ -26,6 +26,7 @@ jobs:
     permissions:
       contents: read
       checks: write
+      pull-requests: write
     env:
       FROM_ORIGINAL_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name == github.repository || github.ref == 'refs/heads/main' }}
     steps:
@@ -37,11 +38,18 @@ jobs:
       - name: Setup JDK environment
         uses: ./.github/workflows/actions
 
-      - name: Run Maven Tests and Build
-        run: mvn clean install -pl tax -am
+      # Cai parent/common-library vao local Maven repo, nhung bo qua test cua module phu thuoc
+      # de service tax co the chay doc lap bang `-f tax` o cac buoc sau.
+      - name: Install dependencies (skip common-library tests)
+        run: mvn install -pl tax -am -DskipTests -Djacoco.skip=true --batch-mode --no-transfer-progress
+
+      # Với tax, chạy test theo reactor ổn định hơn do module này đang có cả unit/integration test
+      # phụ thuộc vào quá trình dựng module từ root.
+      - name: Run Maven Tests
+        run: mvn test -pl tax -am --batch-mode --no-transfer-progress
       - name: Run Maven Checkstyle
         if: ${{ env.FROM_ORIGINAL_REPOSITORY == 'true' }}
-        run: mvn checkstyle:checkstyle -pl tax -am -Dcheckstyle.output.file=tax-checkstyle-result.xml
+        run: mvn checkstyle:checkstyle -f tax -Dcheckstyle.output.file=tax-checkstyle-result.xml --batch-mode --no-transfer-progress
       - name: Upload Checkstyle Result
         if: ${{ env.FROM_ORIGINAL_REPOSITORY == 'true' }}
         uses: jwgmeligmeyling/checkstyle-github-action@master
@@ -69,7 +77,7 @@ jobs:
         if: ${{ env.FROM_ORIGINAL_REPOSITORY == 'true' }}
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-        run: mvn org.sonarsource.scanner.maven:sonar-maven-plugin:sonar -f tax
+        run: mvn org.sonarsource.scanner.maven:sonar-maven-plugin:sonar -f tax --batch-mode --no-transfer-progress
       - name: OWASP Dependency Check
         if: ${{ env.FROM_ORIGINAL_REPOSITORY == 'true' }}
         uses: dependency-check/Dependency-Check_Action@main
@@ -111,6 +119,9 @@ jobs:
             tax/target/site/jacoco-it/index.html
           if-no-files-found: warn
           retention-days: 14
+
+      - name: Enforce JaCoCo Coverage Threshold
+        run: mvn jacoco:check@check -f tax --batch-mode --no-transfer-progress
 
   # ============================================================================
   # PHASE 2: BUILD - Build Docker image and push to registry
