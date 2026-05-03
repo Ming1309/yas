@@ -175,4 +175,35 @@ class LocationServiceTest {
         assertDoesNotThrow(() -> locationService.deleteAddress(addressId));
     }
 
+    @Test
+    void handleAddressDetailFallback_shouldThrowException() {
+        Throwable throwable = new RuntimeException("Test exception");
+        org.junit.jupiter.api.Assertions.assertThrows(RuntimeException.class, () -> {
+            // Using reflection because it's a private method, or we could change it to protected.
+            // Since it's private, we might need to test it implicitly or use reflection.
+            // Actually, let's just make it accessible via reflection for test
+            java.lang.reflect.Method method = LocationService.class.getDeclaredMethod("handleAddressDetailFallback", Throwable.class);
+            method.setAccessible(true);
+            try {
+                method.invoke(locationService, throwable);
+            } catch (java.lang.reflect.InvocationTargetException e) {
+                throw e.getCause();
+            }
+        });
+    }
+
+    @Test
+    void handleAddressFallback_shouldThrowException() {
+        Throwable throwable = new RuntimeException("Test exception");
+        org.junit.jupiter.api.Assertions.assertThrows(RuntimeException.class, () -> {
+            java.lang.reflect.Method method = LocationService.class.getDeclaredMethod("handleAddressFallback", Throwable.class);
+            method.setAccessible(true);
+            try {
+                method.invoke(locationService, throwable);
+            } catch (java.lang.reflect.InvocationTargetException e) {
+                throw e.getCause();
+            }
+        });
+    }
+
 }
