@@ -80,6 +80,18 @@ class FileSystemRepositoryTest {
     }
 
     @Test
+    void testPersistFile_whenFilenameIsInvalid_thenThrowsException() {
+        String filename = "../test-file.png";
+        byte[] content = "test-content".getBytes();
+
+        File directory = new File(TEST_URL);
+        directory.mkdirs();
+        when(filesystemConfig.getDirectory()).thenReturn(TEST_URL);
+
+        assertThrows(IllegalArgumentException.class, () -> fileSystemRepository.persistFile(filename, content));
+    }
+
+    @Test
     void testGetFile_whenDirectIsExist_thenReturnFile() throws IOException {
         String filename = "test-file.png";
         String filePathStr = Paths.get(TEST_URL, filename).toString();
