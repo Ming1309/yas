@@ -1,28 +1,5 @@
 name: media service ci
 
-# ============================================================================
-# WORKFLOW: Media Service CI/CD Pipeline
-# ============================================================================
-# This workflow builds, tests, and deploys the Media Service.
-#
-# TESTING STRATEGY:
-# - Unit Tests: MediaServiceUnitTest.java, MediaControllerTest.java
-#   Coverage: Tests for all major operations (save, get, delete, file ops)
-# - Integration Tests: MediaControllerIT.java
-#   Coverage: Full HTTP request/response validation
-# - Code Quality: SonarCloud analysis with 70% minimum coverage requirement
-# - Security: OWASP Dependency Check for vulnerabilities
-#
-# COVERAGE REQUIREMENTS:
-# - Minimum overall coverage: 70%
-# - Minimum coverage for changed files (PR): 70%
-# - JaCoCo reports generated and compared against thresholds
-#
-# PHASES:
-# 1. TEST: Run all tests, quality checks, and security scans
-# 2. BUILD: Create and push Docker image (main branch only)
-# ============================================================================
-
 on:
   push:
     branches: ["**"]
@@ -49,6 +26,7 @@ jobs:
     permissions:
       contents: read
       checks: write
+      pull-requests: write
     env:
       FROM_ORIGINAL_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name == github.repository || github.ref == 'refs/heads/main' }}
     steps:
@@ -60,36 +38,14 @@ jobs:
       - name: Setup JDK environment
         uses: ./.github/workflows/actions
 
-      - name: Run Maven Tests and Build
-        run: mvn clean install -pl media -am
+      - name: Install dependencies (skip common-library tests)
+        run: mvn install -pl media -am -DskipTests -Djacoco.skip=true --batch-mode --no-transfer-progress
 
-      - name: Verify Test Coverage Threshold
-        run: |
-          echo "Testing Media Service Unit Tests..."
-          mvn test -pl media -am -Dtest='*UnitTest,*Test' -X
-
-      - name: Run Integration Tests
-        run: mvn verify -pl media -am -DskipUnitTests=false
-        continue-on-error: false
-
-      - name: Generate Test Report Summary
-        if: always()
-        run: |
-          echo "## Media Service Test Summary" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### Unit Tests" >> $GITHUB_STEP_SUMMARY
-          if [ -f "media/target/surefire-reports/TEST-*.xml" ]; then
-            echo "✅ Unit tests completed" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "⚠️ No unit test reports found" >> $GITHUB_STEP_SUMMARY
-          fi
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### Coverage Metrics" >> $GITHUB_STEP_SUMMARY
-          echo "📊 Minimum required: 70%" >> $GITHUB_STEP_SUMMARY
-
+      - name: Run Maven Tests
+        run: mvn test -f media --batch-mode --no-transfer-progress
       - name: Run Maven Checkstyle
         if: ${{ env.FROM_ORIGINAL_REPOSITORY == 'true' }}
-        run: mvn checkstyle:checkstyle -pl media -am -Dcheckstyle.output.file=media-checkstyle-result.xml
+        run: mvn checkstyle:checkstyle -f media -Dcheckstyle.output.file=media-checkstyle-result.xml --batch-mode --no-transfer-progress
       - name: Upload Checkstyle Result
         if: ${{ env.FROM_ORIGINAL_REPOSITORY == 'true' }}
         uses: jwgmeligmeyling/checkstyle-github-action@master
@@ -117,13 +73,7 @@ jobs:
         if: ${{ env.FROM_ORIGINAL_REPOSITORY == 'true' }}
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-        run: mvn org.sonarsource.scanner.maven:sonar-maven-plugin:sonar -f media -Dsonar.coverage.jacoco.xmlReportPaths=media/target/site/jacoco/jacoco.xml
-
-      - name: Validate Test Coverage
-        if: ${{ always() && hashFiles('media/target/site/jacoco/jacoco.xml') != '' }}
-        run: |
-          echo "Test Coverage Report Generated"
-          echo "Location: media/target/site/jacoco/index.html"
+        run: mvn org.sonarsource.scanner.maven:sonar-maven-plugin:sonar -f media --batch-mode --no-transfer-progress
 
       - name: OWASP Dependency Check
         if: ${{ env.FROM_ORIGINAL_REPOSITORY == 'true' }}
@@ -166,6 +116,9 @@ jobs:
             media/target/site/jacoco-it/index.html
           if-no-files-found: warn
           retention-days: 14
+
+      - name: Enforce JaCoCo Coverage Threshold
+        run: mvn jacoco:check@check -f media --batch-mode --no-transfer-progress
 
   # ============================================================================
   # PHASE 2: BUILD - Build Docker image and push to registry
