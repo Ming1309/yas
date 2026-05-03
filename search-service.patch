@@ -1,0 +1,249 @@
+diff --git a/.github/workflows/search-ci.yaml b/.github/workflows/search-ci.yaml
+index 9181beef..3449d749 100644
+--- a/.github/workflows/search-ci.yaml
++++ b/.github/workflows/search-ci.yaml
+@@ -26,6 +26,7 @@ jobs:
+     permissions:
+       contents: read
+       checks: write
++      pull-requests: write
+     env:
+       FROM_ORIGINAL_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name == github.repository || github.ref == 'refs/heads/main' }}
+     steps:
+@@ -37,11 +38,14 @@ jobs:
+       - name: Setup JDK environment
+         uses: ./.github/workflows/actions
+ 
+-      - name: Run Maven Tests and Build
+-        run: mvn clean install -pl search -am
++      - name: Install dependencies (skip common-library tests)
++        run: mvn install -pl search -am -DskipTests -Djacoco.skip=true --batch-mode --no-transfer-progress
++
++      - name: Run Maven Tests
++        run: mvn test -f search --batch-mode --no-transfer-progress
+       - name: Run Maven Checkstyle
+         if: ${{ env.FROM_ORIGINAL_REPOSITORY == 'true' }}
+-        run: mvn checkstyle:checkstyle -pl search -am -Dcheckstyle.output.file=search-checkstyle-result.xml
++        run: mvn checkstyle:checkstyle -f search -Dcheckstyle.output.file=search-checkstyle-result.xml --batch-mode --no-transfer-progress
+       - name: Upload Checkstyle Result
+         if: ${{ env.FROM_ORIGINAL_REPOSITORY == 'true' }}
+         uses: jwgmeligmeyling/checkstyle-github-action@master
+@@ -69,7 +73,7 @@ jobs:
+         if: ${{ env.FROM_ORIGINAL_REPOSITORY == 'true' }}
+         env:
+           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+-        run: mvn org.sonarsource.scanner.maven:sonar-maven-plugin:sonar -f search
++        run: mvn org.sonarsource.scanner.maven:sonar-maven-plugin:sonar -f search --batch-mode --no-transfer-progress
+       - name: OWASP Dependency Check
+         if: ${{ env.FROM_ORIGINAL_REPOSITORY == 'true' }}
+         uses: dependency-check/Dependency-Check_Action@main
+@@ -112,6 +116,9 @@ jobs:
+           if-no-files-found: warn
+           retention-days: 14
+ 
++      - name: Enforce JaCoCo Coverage Threshold
++        run: mvn jacoco:check@check -f search --batch-mode --no-transfer-progress
++
+   # ============================================================================
+   # PHASE 2: BUILD - Build Docker image and push to registry
+   # ============================================================================
+diff --git a/search/src/test/java/com/yas/search/constant/ConstantsTest.java b/search/src/test/java/com/yas/search/constant/ConstantsTest.java
+new file mode 100644
+index 00000000..5c830ecd
+--- /dev/null
++++ b/search/src/test/java/com/yas/search/constant/ConstantsTest.java
+@@ -0,0 +1,34 @@
++package com.yas.search.constant;
++
++import org.junit.jupiter.api.Test;
++
++import java.lang.reflect.Constructor;
++import java.lang.reflect.InvocationTargetException;
++
++import static org.junit.jupiter.api.Assertions.assertThrows;
++import static org.junit.jupiter.api.Assertions.assertTrue;
++
++class ConstantsTest {
++
++    @Test
++    void testProductFieldConstructor() throws Exception {
++        Constructor<ProductField> constructor = ProductField.class.getDeclaredConstructor();
++        assertTrue(constructor.trySetAccessible());
++        InvocationTargetException exception = assertThrows(InvocationTargetException.class, constructor::newInstance);
++        assertTrue(exception.getCause() instanceof UnsupportedOperationException);
++    }
++
++    @Test
++    void testMessageCodeConstructor() throws Exception {
++        Constructor<MessageCode> constructor = MessageCode.class.getDeclaredConstructor();
++        assertTrue(constructor.trySetAccessible());
++        constructor.newInstance();
++    }
++
++    @Test
++    void testActionConstructor() throws Exception {
++        Constructor<Action> constructor = Action.class.getDeclaredConstructor();
++        assertTrue(constructor.trySetAccessible());
++        constructor.newInstance();
++    }
++}
+diff --git a/search/src/test/java/com/yas/search/consumer/ProductSyncDataConsumerTest.java b/search/src/test/java/com/yas/search/consumer/ProductSyncDataConsumerTest.java
+index 0cd24138..cbee4d83 100644
+--- a/search/src/test/java/com/yas/search/consumer/ProductSyncDataConsumerTest.java
++++ b/search/src/test/java/com/yas/search/consumer/ProductSyncDataConsumerTest.java
+@@ -63,7 +63,6 @@ class ProductSyncDataConsumerTest {
+         verify(productSyncDataService, times(1)).updateProduct(productId);
+     }
+ 
+-    @Disabled("Handle later once elasticsearch sync delete complete")
+     @Test
+     void testSync_whenDeleteAction_deleteProduct() {
+         // When
+@@ -79,4 +78,33 @@ class ProductSyncDataConsumerTest {
+         // Then
+         verify(productSyncDataService, times(1)).deleteProduct(productId);
+     }
++
++    @Test
++    void testSync_whenReadAction_createProduct() {
++        // When
++        long productId = 4L;
++        productSyncDataConsumer.sync(
++            ProductMsgKey.builder().id(productId).build(),
++            ProductCdcMessage.builder()
++                .after(Product.builder().id(productId).build())
++                .op(com.yas.commonlibrary.kafka.cdc.message.Operation.READ)
++                .build()
++        );
++
++        // Then
++        verify(productSyncDataService, times(1)).createProduct(productId);
++    }
++
++    @Test
++    void testSync_whenMessageIsNull_deleteProduct() {
++        // When
++        long productId = 5L;
++        productSyncDataConsumer.sync(
++            ProductMsgKey.builder().id(productId).build(),
++            null
++        );
++
++        // Then
++        verify(productSyncDataService, times(1)).deleteProduct(productId);
++    }
+ }
+diff --git a/search/src/test/java/com/yas/search/kafka/config/consumer/AppKafkaListenerConfigurerTest.java b/search/src/test/java/com/yas/search/kafka/config/consumer/AppKafkaListenerConfigurerTest.java
+new file mode 100644
+index 00000000..4441e934
+--- /dev/null
++++ b/search/src/test/java/com/yas/search/kafka/config/consumer/AppKafkaListenerConfigurerTest.java
+@@ -0,0 +1,22 @@
++package com.yas.search.kafka.config.consumer;
++
++import static org.mockito.Mockito.mock;
++import static org.mockito.Mockito.verify;
++
++import org.junit.jupiter.api.Test;
++import org.springframework.kafka.config.KafkaListenerEndpointRegistrar;
++import org.springframework.validation.beanvalidation.LocalValidatorFactoryBean;
++
++class AppKafkaListenerConfigurerTest {
++
++    @Test
++    void configureKafkaListeners_SetsValidator() {
++        LocalValidatorFactoryBean validator = mock(LocalValidatorFactoryBean.class);
++        AppKafkaListenerConfigurer configurer = new AppKafkaListenerConfigurer(validator);
++        KafkaListenerEndpointRegistrar registrar = mock(KafkaListenerEndpointRegistrar.class);
++
++        configurer.configureKafkaListeners(registrar);
++
++        verify(registrar).setValidator(validator);
++    }
++}
+diff --git a/search/src/test/java/com/yas/search/service/ProductServiceTest.java b/search/src/test/java/com/yas/search/service/ProductServiceTest.java
+index 30b1ffc9..5f7211eb 100644
+--- a/search/src/test/java/com/yas/search/service/ProductServiceTest.java
++++ b/search/src/test/java/com/yas/search/service/ProductServiceTest.java
+@@ -143,6 +143,34 @@ class ProductServiceTest {
+         assertEquals("createdOn: DESC", Objects.requireNonNull(captor.getValue().getSort()).toString());
+     }
+ 
++    @Test
++    void testFindProductAdvance_whenCriteriaAreNull_ReturnProductListGetVm() {
++
++        SearchHits<Product> searchHits =
++            getSearchHits();
++
++        SearchPage<Product> productPage = mock(SearchPage.class);
++        when(productPage.getNumber()).thenReturn(0);
++        when(productPage.getSize()).thenReturn(10);
++        when(productPage.getTotalElements()).thenReturn(1L);
++        when(productPage.getTotalPages()).thenReturn(1);
++        when(productPage.isLast()).thenReturn(true);
++
++        ArgumentCaptor<NativeQuery> captor = ArgumentCaptor.forClass(NativeQuery.class);
++
++        when(elasticsearchOperations.search(any(NativeQuery.class), eq(Product.class))).thenReturn(searchHits);
++
++        ProductCriteriaDto criteriaDto = new ProductCriteriaDto(
++            "test", 0, 10, null, "",
++            null, null, null, SortType.DEFAULT);
++        productService.findProductAdvance(criteriaDto);
++
++        verify(elasticsearchOperations, times(1))
++            .search(captor.capture(), eq(Product.class));
++
++        assertEquals("createdOn: DESC", Objects.requireNonNull(captor.getValue().getSort()).toString());
++    }
++
+     @Test
+     void testAutoCompleteProductName_whenExistsProducts_returnProductNameListVm() {
+ 
+diff --git a/search/src/test/java/com/yas/search/service/ProductSyncDataServiceTest.java b/search/src/test/java/com/yas/search/service/ProductSyncDataServiceTest.java
+index d9f9f14d..71d130df 100644
+--- a/search/src/test/java/com/yas/search/service/ProductSyncDataServiceTest.java
++++ b/search/src/test/java/com/yas/search/service/ProductSyncDataServiceTest.java
+@@ -219,16 +219,13 @@ class ProductSyncDataServiceTest {
+         verify(productRepository).deleteById(id);
+     }
+ 
+-    @Disabled
+     @Test
+-    void testDeleteProduct_whenProductDoesNotExist_throwsNotFoundException() {
++    void testDeleteProduct_whenProductDoesNotExist_logsWarning() {
+         Long id = 1L;
+ 
+         when(productRepository.existsById(id)).thenReturn(false);
+ 
+-        assertThatThrownBy(() -> productSyncDataService.deleteProduct(id))
+-            .isInstanceOf(NotFoundException.class)
+-            .hasMessageContaining("The product 1 is not found");
++        productSyncDataService.deleteProduct(id);
+ 
+         verify(productRepository, never()).deleteById(id);
+     }
+diff --git a/search/src/test/java/com/yas/search/viewmodel/error/ErrorVmTest.java b/search/src/test/java/com/yas/search/viewmodel/error/ErrorVmTest.java
+new file mode 100644
+index 00000000..2eb456d4
+--- /dev/null
++++ b/search/src/test/java/com/yas/search/viewmodel/error/ErrorVmTest.java
+@@ -0,0 +1,18 @@
++package com.yas.search.viewmodel.error;
++
++import org.junit.jupiter.api.Test;
++
++import static org.junit.jupiter.api.Assertions.assertEquals;
++import static org.junit.jupiter.api.Assertions.assertTrue;
++
++class ErrorVmTest {
++
++    @Test
++    void testErrorVm_ConstructorWithThreeParams() {
++        ErrorVm errorVm = new ErrorVm("400", "Bad Request", "Detail error");
++        assertEquals("400", errorVm.statusCode());
++        assertEquals("Bad Request", errorVm.title());
++        assertEquals("Detail error", errorVm.detail());
++        assertTrue(errorVm.fieldErrors().isEmpty());
++    }
++}

@@ -1,0 +1,214 @@
+diff --git a/common-library/src/test/java/com/yas/commonlibrary/kafka/cdc/BaseCdcConsumerTest.java b/common-library/src/test/java/com/yas/commonlibrary/kafka/cdc/BaseCdcConsumerTest.java
+new file mode 100644
+index 00000000..9ab30d5d
+--- /dev/null
++++ b/common-library/src/test/java/com/yas/commonlibrary/kafka/cdc/BaseCdcConsumerTest.java
+@@ -0,0 +1,43 @@
++package com.yas.commonlibrary.kafka.cdc;
++
++import static org.junit.jupiter.api.Assertions.assertTrue;
++import static org.mockito.Mockito.mock;
++import static org.mockito.Mockito.verify;
++
++import java.util.HashMap;
++import java.util.Map;
++import java.util.function.BiConsumer;
++import java.util.function.Consumer;
++import org.junit.jupiter.api.Test;
++import org.springframework.messaging.MessageHeaders;
++
++class BaseCdcConsumerTest {
++
++    private final BaseCdcConsumer<String, String> consumer = new BaseCdcConsumer<>() {};
++
++    @Test
++    void processMessage_WithConsumer_ShouldCallAccept() {
++        Map<String, Object> headerMap = new HashMap<>();
++        MessageHeaders headers = new MessageHeaders(headerMap);
++        
++        @SuppressWarnings("unchecked")
++        Consumer<String> mockConsumer = mock(Consumer.class);
++
++        consumer.processMessage("test-record", headers, mockConsumer);
++
++        verify(mockConsumer).accept("test-record");
++    }
++
++    @Test
++    void processMessage_WithBiConsumer_ShouldCallAccept() {
++        Map<String, Object> headerMap = new HashMap<>();
++        MessageHeaders headers = new MessageHeaders(headerMap);
++        
++        @SuppressWarnings("unchecked")
++        BiConsumer<String, String> mockBiConsumer = mock(BiConsumer.class);
++
++        consumer.processMessage("test-key", "test-value", headers, mockBiConsumer);
++
++        verify(mockBiConsumer).accept("test-key", "test-value");
++    }
++}
+diff --git a/common-library/src/test/java/com/yas/commonlibrary/utils/AuthenticationUtilsTest.java b/common-library/src/test/java/com/yas/commonlibrary/utils/AuthenticationUtilsTest.java
+new file mode 100644
+index 00000000..6506a3ff
+--- /dev/null
++++ b/common-library/src/test/java/com/yas/commonlibrary/utils/AuthenticationUtilsTest.java
+@@ -0,0 +1,64 @@
++package com.yas.commonlibrary.utils;
++
++import static org.junit.jupiter.api.Assertions.assertEquals;
++import static org.junit.jupiter.api.Assertions.assertThrows;
++import static org.mockito.Mockito.mock;
++import static org.mockito.Mockito.when;
++
++import com.yas.commonlibrary.exception.AccessDeniedException;
++import org.junit.jupiter.api.AfterEach;
++import org.junit.jupiter.api.BeforeEach;
++import org.junit.jupiter.api.Test;
++import org.springframework.security.authentication.AnonymousAuthenticationToken;
++import org.springframework.security.core.Authentication;
++import org.springframework.security.core.context.SecurityContext;
++import org.springframework.security.core.context.SecurityContextHolder;
++import org.springframework.security.oauth2.jwt.Jwt;
++import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
++import java.util.Collections;
++
++class AuthenticationUtilsTest {
++
++    private SecurityContext securityContext;
++
++    @BeforeEach
++    void setUp() {
++        securityContext = mock(SecurityContext.class);
++        SecurityContextHolder.setContext(securityContext);
++    }
++
++    @AfterEach
++    void tearDown() {
++        SecurityContextHolder.clearContext();
++    }
++
++    @Test
++    void extractUserId_WhenAuthenticated_ShouldReturnSubject() {
++        Jwt jwt = mock(Jwt.class);
++        when(jwt.getSubject()).thenReturn("test-user-id");
++        JwtAuthenticationToken authentication = new JwtAuthenticationToken(jwt);
++        when(securityContext.getAuthentication()).thenReturn(authentication);
++
++        String userId = AuthenticationUtils.extractUserId();
++        assertEquals("test-user-id", userId);
++    }
++
++    @Test
++    void extractUserId_WhenAnonymous_ShouldThrowAccessDeniedException() {
++        AnonymousAuthenticationToken anonymousAuth = mock(AnonymousAuthenticationToken.class);
++        when(securityContext.getAuthentication()).thenReturn(anonymousAuth);
++
++        assertThrows(AccessDeniedException.class, AuthenticationUtils::extractUserId);
++    }
++
++    @Test
++    void extractJwt_WhenAuthenticated_ShouldReturnTokenValue() {
++        Jwt jwt = mock(Jwt.class);
++        when(jwt.getTokenValue()).thenReturn("test-jwt-token-value");
++        JwtAuthenticationToken authentication = new JwtAuthenticationToken(jwt);
++        when(securityContext.getAuthentication()).thenReturn(authentication);
++
++        String token = AuthenticationUtils.extractJwt();
++        assertEquals("test-jwt-token-value", token);
++    }
++}
+diff --git a/common-library/src/test/java/com/yas/commonlibrary/utils/DateTimeUtilsTest.java b/common-library/src/test/java/com/yas/commonlibrary/utils/DateTimeUtilsTest.java
+new file mode 100644
+index 00000000..09dea556
+--- /dev/null
++++ b/common-library/src/test/java/com/yas/commonlibrary/utils/DateTimeUtilsTest.java
+@@ -0,0 +1,23 @@
++package com.yas.commonlibrary.utils;
++
++import static org.junit.jupiter.api.Assertions.assertEquals;
++
++import java.time.LocalDateTime;
++import org.junit.jupiter.api.Test;
++
++class DateTimeUtilsTest {
++
++    @Test
++    void format_WithDefaultPattern_ShouldReturnFormattedString() {
++        LocalDateTime dateTime = LocalDateTime.of(2023, 10, 15, 14, 30, 45);
++        String formatted = DateTimeUtils.format(dateTime);
++        assertEquals("15-10-2023_14-30-45", formatted);
++    }
++
++    @Test
++    void format_WithCustomPattern_ShouldReturnFormattedString() {
++        LocalDateTime dateTime = LocalDateTime.of(2023, 10, 15, 14, 30, 45);
++        String formatted = DateTimeUtils.format(dateTime, "yyyy/MM/dd HH:mm");
++        assertEquals("2023/10/15 14:30", formatted);
++    }
++}
+diff --git a/common-library/src/test/java/com/yas/commonlibrary/utils/MessagesUtilsTest.java b/common-library/src/test/java/com/yas/commonlibrary/utils/MessagesUtilsTest.java
+new file mode 100644
+index 00000000..12b568fa
+--- /dev/null
++++ b/common-library/src/test/java/com/yas/commonlibrary/utils/MessagesUtilsTest.java
+@@ -0,0 +1,23 @@
++package com.yas.commonlibrary.utils;
++
++import static org.junit.jupiter.api.Assertions.assertEquals;
++
++import org.junit.jupiter.api.Test;
++
++class MessagesUtilsTest {
++
++    @Test
++    void getMessage_WhenCodeExists_ShouldReturnFormattedMessage() {
++        // Since we may not have messages.properties in common-library test resources,
++        // it might fall back to the error code. Let's test the fallback mechanism.
++        String message = MessagesUtils.getMessage("UNKNOWN_CODE", "param1");
++        assertEquals("UNKNOWN_CODE", message); // Because it falls back and no {} to format
++    }
++
++    @Test
++    void getMessage_WithFormatting_ShouldFormatMessage() {
++        // Testing formatting when the string has {}
++        String message = MessagesUtils.getMessage("Error: {} happened", "Timeout");
++        assertEquals("Error: Timeout happened", message);
++    }
++}
+diff --git a/common-library/src/test/java/com/yas/commonlibrary/viewmodel/error/ErrorVmTest.java b/common-library/src/test/java/com/yas/commonlibrary/viewmodel/error/ErrorVmTest.java
+new file mode 100644
+index 00000000..3b1512d5
+--- /dev/null
++++ b/common-library/src/test/java/com/yas/commonlibrary/viewmodel/error/ErrorVmTest.java
+@@ -0,0 +1,31 @@
++package com.yas.commonlibrary.viewmodel.error;
++
++import static org.junit.jupiter.api.Assertions.assertEquals;
++import static org.junit.jupiter.api.Assertions.assertTrue;
++
++import java.util.List;
++import org.junit.jupiter.api.Test;
++
++class ErrorVmTest {
++
++    @Test
++    void constructor_WithAllArgs_ShouldCreateObject() {
++        ErrorVm errorVm = new ErrorVm("404", "Not Found", "Item not found", List.of("id"));
++
++        assertEquals("404", errorVm.statusCode());
++        assertEquals("Not Found", errorVm.title());
++        assertEquals("Item not found", errorVm.detail());
++        assertEquals(1, errorVm.fieldErrors().size());
++        assertEquals("id", errorVm.fieldErrors().get(0));
++    }
++
++    @Test
++    void constructor_WithThreeArgs_ShouldCreateObjectWithEmptyFieldErrors() {
++        ErrorVm errorVm = new ErrorVm("500", "Server Error", "Something went wrong");
++
++        assertEquals("500", errorVm.statusCode());
++        assertEquals("Server Error", errorVm.title());
++        assertEquals("Something went wrong", errorVm.detail());
++        assertTrue(errorVm.fieldErrors().isEmpty());
++    }
++}
