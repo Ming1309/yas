@@ -1,4 +1,4 @@
-package com.yas.media;
+package com.yas.media.exception;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -8,10 +8,10 @@ import static org.mockito.Mockito.when;
 
 import com.yas.commonlibrary.exception.NotFoundException;
 import com.yas.commonlibrary.exception.UnsupportedMediaTypeException;
-import com.yas.media.exception.ControllerAdvisor;
 import com.yas.media.viewmodel.ErrorVm;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ConstraintViolationException;
+import jakarta.validation.Path;
 import java.lang.reflect.Method;
 import java.util.List;
 import java.util.Set;
@@ -112,8 +112,10 @@ class ControllerAdvisorUnitTest {
     void handleConstraintViolation_shouldReturnBadRequest() {
         @SuppressWarnings("unchecked")
         ConstraintViolation<Object> violation = mock(ConstraintViolation.class);
+        Path propertyPath = mock(Path.class);
         when(violation.getRootBeanClass()).thenReturn((Class) ControllerAdvisorUnitTest.class);
-        when(violation.getPropertyPath()).thenReturn(() -> "caption");
+        when(violation.getPropertyPath()).thenReturn(propertyPath);
+        when(propertyPath.toString()).thenReturn("caption");
         when(violation.getMessage()).thenReturn("must not be blank");
 
         ResponseEntity<ErrorVm> response = controllerAdvisor.handleConstraintViolation(
