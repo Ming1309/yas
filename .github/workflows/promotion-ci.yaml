@@ -38,6 +38,9 @@ jobs:
       - name: Setup JDK environment
         uses: ./.github/workflows/actions
 
+      - name: Install parent POM to local repository
+        run: mvn -N install -DskipTests --batch-mode --no-transfer-progress
+
       - name: Install dependencies (skip common-library tests)
         run: mvn install -pl promotion -am -DskipTests -Djacoco.skip=true --batch-mode --no-transfer-progress
 
