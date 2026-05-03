@@ -1,15 +1,17 @@
 package com.yas.order.specification;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.yas.order.model.Order;
 import com.yas.order.model.OrderItem;
 import com.yas.order.model.enumeration.OrderStatus;
+import com.yas.order.utils.Constants;
 import jakarta.persistence.criteria.CriteriaBuilder;
 import jakarta.persistence.criteria.CriteriaQuery;
 import jakarta.persistence.criteria.Path;
@@ -20,131 +22,403 @@ import java.time.ZonedDateTime;
 import java.util.Collection;
 import java.util.List;
 import org.junit.jupiter.api.Test;
-import org.springframework.data.jpa.domain.Specification;
 
 class OrderSpecificationTest {
 
     private final CriteriaBuilder criteriaBuilder = mock(CriteriaBuilder.class);
-    private final Root<Order> root = mock(Root.class);
-    private final CriteriaQuery<?> query = mock(CriteriaQuery.class);
-    private final Root<OrderItem> orderItemRoot = mock(Root.class);
+    private final Predicate conjunction = mock(Predicate.class);
 
     @Test
-    void testHasCreatedBy_whenNormalCase_thenSuccess() {
+    void hasCreatedBy_shouldCreateEqualPredicate() {
+        Root<Order> root = mock(Root.class);
+        CriteriaQuery<?> query = mock(CriteriaQuery.class);
+        Path<Object> createdByPath = mockPath();
+        Predicate expected = mock(Predicate.class);
 
-        String createdBy = "user123";
+        when(root.get(Constants.Column.CREATE_BY_COLUMN)).thenReturn(createdByPath);
+        when(criteriaBuilder.equal(createdByPath, "user123")).thenReturn(expected);
 
-        when(root.get("createdBy")).thenReturn(mock(Path.class));
+        Predicate result = OrderSpecification.hasCreatedBy("user123")
+            .toPredicate(root, query, criteriaBuilder);
 
-        Predicate expectedPredicate = mock(Predicate.class);
-        when(criteriaBuilder.equal(root.get("createdBy"), createdBy)).thenReturn(expectedPredicate);
-
-        Specification<Order> spec = OrderSpecification.hasCreatedBy(createdBy);
-        Predicate resultPredicate = spec.toPredicate(root, query, criteriaBuilder);
-
-        assertNotNull(resultPredicate, "Predicate should not be null");
-        assertEquals(expectedPredicate, resultPredicate, "Predicate should match expected predicate");
+        assertThat(result).isSameAs(expected);
     }
 
     @Test
-    void testHasOrderStatus_whenNormalCase_thenSuccess() {
-        when(root.get("orderStatus")).thenReturn(mock(Path.class));
-        Predicate expectedPredicate = mock(Predicate.class);
-        when(criteriaBuilder.equal(root.get("orderStatus"), OrderStatus.COMPLETED)).thenReturn(expectedPredicate);
+    void hasOrderStatus_shouldReturnEqualPredicateWhenStatusPresent() {
+        Root<Order> root = mock(Root.class);
+        CriteriaQuery<?> query = mock(CriteriaQuery.class);
+        Path<Object> orderStatusPath = mockPath();
+        Predicate expected = mock(Predicate.class);
 
-        Specification<Order> spec = OrderSpecification.hasOrderStatus(OrderStatus.COMPLETED);
-        Predicate predicate = spec.toPredicate(root, query, criteriaBuilder);
+        when(root.get(Constants.Column.ORDER_ORDER_STATUS_COLUMN)).thenReturn(orderStatusPath);
+        when(criteriaBuilder.equal(orderStatusPath, OrderStatus.COMPLETED)).thenReturn(expected);
 
-        assertNotNull(predicate);
-        assertEquals(expectedPredicate, predicate);
+        Predicate result = OrderSpecification.hasOrderStatus(OrderStatus.COMPLETED)
+            .toPredicate(root, query, criteriaBuilder);
+
+        assertThat(result).isSameAs(expected);
     }
 
     @Test
-    void testHasProductNameInOrderItems_whenNormalCase_thenSuccess() {
+    void hasOrderStatus_shouldReturnConjunctionWhenStatusMissing() {
+        Root<Order> root = mock(Root.class);
+        CriteriaQuery<?> query = mock(CriteriaQuery.class);
 
-        Subquery<Long> subqueryMock = mock(Subquery.class);
-        when(query.subquery(Long.class)).thenReturn(subqueryMock);
+        when(criteriaBuilder.conjunction()).thenReturn(conjunction);
 
-        when(subqueryMock.from(OrderItem.class)).thenReturn(orderItemRoot);
-        when(criteriaBuilder.like(any(), anyString())).thenReturn(mock(Predicate.class));
+        Predicate result = OrderSpecification.hasOrderStatus(null)
+            .toPredicate(root, query, criteriaBuilder);
 
-        Subquery subquery1 = mock(Subquery.class);
-        when(subqueryMock.select(any())).thenReturn(subquery1);
-
-        Subquery subquery2 = mock(Subquery.class);
-        when(subquery1.where(any(Predicate.class))).thenReturn(subquery2);
-
-        CriteriaBuilder.In inMock = mock(CriteriaBuilder.In.class);
-        when(criteriaBuilder.in(any())).thenReturn(inMock);
-        when(inMock.value(any())).thenReturn(mock(CriteriaBuilder.In.class));
-
-        Specification<Order> spec = OrderSpecification.hasProductNameInOrderItems("SampleProduct");
-        Predicate predicate = spec.toPredicate(root, query, criteriaBuilder);
-
-        assertNotNull(predicate);
+        assertThat(result).isSameAs(conjunction);
     }
 
     @Test
-    void testWithEmail_whenNormalCase_thenSuccess() {
-        when(root.get("email")).thenReturn(mock(Path.class));
-        when(criteriaBuilder.like(any(), anyString())).thenReturn(mock(Predicate.class));
+    void hasProductInOrderItems_shouldReturnConjunctionWhenQueryMissing() {
+        Root<Order> root = mock(Root.class);
 
-        Specification<Order> spec = OrderSpecification.withEmail("test@example.com");
-        Predicate predicate = spec.toPredicate(root, query, criteriaBuilder);
+        when(criteriaBuilder.conjunction()).thenReturn(conjunction);
 
-        assertNotNull(predicate);
+        Predicate result = OrderSpecification.hasProductInOrderItems(List.of(1L))
+            .toPredicate(root, null, criteriaBuilder);
+
+        assertThat(result).isSameAs(conjunction);
     }
 
     @Test
-    void testWithOrderStatusList_whenNormalCase_thenSuccess() {
-        Path pathMock = mock(Path.class);
-        when(root.get("orderStatus")).thenReturn(pathMock);
-        when(pathMock.in(any(Collection.class))).thenReturn(mock(Predicate.class));
+    void hasProductInOrderItems_shouldUseEmptyListWhenProductIdsNull() {
+        Root<Order> root = mock(Root.class);
+        CriteriaQuery<?> query = mock(CriteriaQuery.class);
+        @SuppressWarnings("unchecked")
+        Subquery<OrderItem> subquery = mock(Subquery.class);
+        Root<OrderItem> orderItemRoot = mock(Root.class);
+        Path<Long> rootIdPath = mockPath();
+        Path<Long> orderIdPath = mockPath();
+        Path<Object> productIdPath = mockPath();
+        Predicate equalPredicate = mock(Predicate.class);
+        Predicate inPredicate = mock(Predicate.class);
+        Predicate andPredicate = mock(Predicate.class);
+        Predicate existsPredicate = mock(Predicate.class);
 
-        Specification<Order> spec = OrderSpecification.withOrderStatus(List.of(OrderStatus.COMPLETED, OrderStatus.CANCELLED));
-        Predicate predicate = spec.toPredicate(root, query, criteriaBuilder);
+        when(query.subquery(OrderItem.class)).thenReturn(subquery);
+        when(subquery.from(OrderItem.class)).thenReturn(orderItemRoot);
+        when(root.<Long>get(Constants.Column.ID_COLUMN)).thenReturn(rootIdPath);
+        when(orderItemRoot.<Long>get(Constants.Column.ORDER_ORDER_ID_COLUMN)).thenReturn(orderIdPath);
+        when(orderItemRoot.get(Constants.Column.ORDER_ITEM_PRODUCT_ID_COLUMN)).thenReturn(productIdPath);
+        when(criteriaBuilder.equal(orderIdPath, rootIdPath)).thenReturn(equalPredicate);
+        when(productIdPath.in(List.of())).thenReturn(inPredicate);
+        when(criteriaBuilder.and(equalPredicate, inPredicate)).thenReturn(andPredicate);
+        when(subquery.select(orderItemRoot)).thenReturn(subquery);
+        when(subquery.where(andPredicate)).thenReturn(subquery);
+        when(criteriaBuilder.exists(subquery)).thenReturn(existsPredicate);
 
-        assertNotNull(predicate);
+        Predicate result = OrderSpecification.hasProductInOrderItems(null)
+            .toPredicate(root, query, criteriaBuilder);
+
+        assertThat(result).isSameAs(existsPredicate);
     }
 
     @Test
-    void testWithBillingPhoneNumber_whenNormalCase_thenSuccess() {
+    void hasProductNameInOrderItems_shouldReturnConjunctionWhenQueryMissing() {
+        Root<Order> root = mock(Root.class);
 
-        Path pathMock = mock(Path.class);
-        when(root.get("billingAddressId")).thenReturn(pathMock);
-        when(pathMock.get("phone")).thenReturn(mock(Path.class));
-        when(criteriaBuilder.like(any(), anyString())).thenReturn(mock(Predicate.class));
+        when(criteriaBuilder.conjunction()).thenReturn(conjunction);
 
-        Specification<Order> spec = OrderSpecification.withBillingPhoneNumber("1234567890");
-        Predicate predicate = spec.toPredicate(root, query, criteriaBuilder);
+        Predicate result = OrderSpecification.hasProductNameInOrderItems("book")
+            .toPredicate(root, null, criteriaBuilder);
 
-        assertNotNull(predicate);
+        assertThat(result).isSameAs(conjunction);
     }
 
     @Test
-    void testWithCountryName_whenNormalCase_thenSuccess() {
+    void hasProductNameInOrderItems_shouldSkipLikeWhenProductNameEmpty() {
+        Root<Order> root = mock(Root.class);
+        CriteriaQuery<?> query = mock(CriteriaQuery.class);
+        @SuppressWarnings("unchecked")
+        Subquery<Long> subquery = mock(Subquery.class);
+        Root<OrderItem> orderItemRoot = mock(Root.class);
+        Path<Long> orderIdPath = mockPath();
+        Path<Long> rootIdPath = mockPath();
+        @SuppressWarnings("unchecked")
+        CriteriaBuilder.In<Long> inPredicate = mock(CriteriaBuilder.In.class);
 
-        Path path = mock(Path.class);
-        when(root.get("billingAddressId")).thenReturn(path);
-        when(path.get("countryName")).thenReturn(mock(Path.class));
-        when(criteriaBuilder.like(any(), anyString())).thenReturn(mock(Predicate.class));
+        when(criteriaBuilder.conjunction()).thenReturn(conjunction);
+        when(query.subquery(Long.class)).thenReturn(subquery);
+        when(subquery.from(OrderItem.class)).thenReturn(orderItemRoot);
+        when(orderItemRoot.<Long>get(Constants.Column.ORDER_ORDER_ID_COLUMN)).thenReturn(orderIdPath);
+        when(subquery.select(orderIdPath)).thenReturn(subquery);
+        when(subquery.where(conjunction)).thenReturn(subquery);
+        when(root.<Long>get(Constants.Column.ID_COLUMN)).thenReturn(rootIdPath);
+        when(criteriaBuilder.in(rootIdPath)).thenReturn(inPredicate);
+        when(inPredicate.value(subquery)).thenReturn(inPredicate);
 
-        Specification<Order> spec = OrderSpecification.withCountryName("USA");
-        Predicate predicate = spec.toPredicate(root, query, criteriaBuilder);
+        Predicate result = OrderSpecification.hasProductNameInOrderItems("")
+            .toPredicate(root, query, criteriaBuilder);
 
-        assertNotNull(predicate);
+        assertThat(result).isSameAs(inPredicate);
+        verify(criteriaBuilder, never()).like(any(), anyString());
     }
 
     @Test
-    void testWithDateRange_whenNormalCase_thenSuccess() {
+    void withEmail_shouldReturnLikePredicateWhenEmailPresent() {
+        Root<Order> root = mock(Root.class);
+        CriteriaQuery<?> query = mock(CriteriaQuery.class);
+        Path<Object> emailPath = mockPath();
+        Predicate likePredicate = mock(Predicate.class);
+
+        when(root.get(Constants.Column.ORDER_EMAIL_COLUMN)).thenReturn(emailPath);
+        when(criteriaBuilder.like(any(), anyString())).thenReturn(likePredicate);
+
+        Predicate result = OrderSpecification.withEmail("test@example.com")
+            .toPredicate(root, query, criteriaBuilder);
+
+        assertThat(result).isSameAs(likePredicate);
+    }
+
+    @Test
+    void withEmail_shouldReturnConjunctionWhenEmailEmpty() {
+        Root<Order> root = mock(Root.class);
+        CriteriaQuery<?> query = mock(CriteriaQuery.class);
+
+        when(criteriaBuilder.conjunction()).thenReturn(conjunction);
+
+        Predicate result = OrderSpecification.withEmail("")
+            .toPredicate(root, query, criteriaBuilder);
+
+        assertThat(result).isSameAs(conjunction);
+    }
+
+    @Test
+    void withOrderStatus_shouldReturnInPredicateWhenListNotEmpty() {
+        Root<Order> root = mock(Root.class);
+        CriteriaQuery<?> query = mock(CriteriaQuery.class);
+        Path<Object> orderStatusPath = mockPath();
+        Predicate inPredicate = mock(Predicate.class);
+
+        when(root.get(Constants.Column.ORDER_ORDER_STATUS_COLUMN)).thenReturn(orderStatusPath);
+        when(orderStatusPath.in(any(Collection.class))).thenReturn(inPredicate);
+
+        Predicate result = OrderSpecification.withOrderStatus(List.of(OrderStatus.COMPLETED))
+            .toPredicate(root, query, criteriaBuilder);
+
+        assertThat(result).isSameAs(inPredicate);
+    }
+
+    @Test
+    void withOrderStatus_shouldReturnConjunctionWhenListEmpty() {
+        Root<Order> root = mock(Root.class);
+        CriteriaQuery<?> query = mock(CriteriaQuery.class);
+
+        when(criteriaBuilder.conjunction()).thenReturn(conjunction);
+
+        Predicate result = OrderSpecification.withOrderStatus(List.of())
+            .toPredicate(root, query, criteriaBuilder);
+
+        assertThat(result).isSameAs(conjunction);
+    }
+
+    @Test
+    void withProductName_shouldReturnConjunctionWhenQueryMissing() {
+        Root<Order> root = mock(Root.class);
+
+        when(criteriaBuilder.conjunction()).thenReturn(conjunction);
+
+        Predicate result = OrderSpecification.withProductName("tea")
+            .toPredicate(root, null, criteriaBuilder);
+
+        assertThat(result).isSameAs(conjunction);
+    }
+
+    @Test
+    void withProductName_shouldReturnConjunctionWhenProductNameEmpty() {
+        Root<Order> root = mock(Root.class);
+        CriteriaQuery<?> query = mock(CriteriaQuery.class);
+
+        when(criteriaBuilder.conjunction()).thenReturn(conjunction);
+
+        Predicate result = OrderSpecification.withProductName("")
+            .toPredicate(root, query, criteriaBuilder);
+
+        assertThat(result).isSameAs(conjunction);
+    }
+
+    @Test
+    void withProductName_shouldBuildExistsSubqueryWhenProductNamePresent() {
+        Root<Order> root = mock(Root.class);
+        CriteriaQuery<?> query = mock(CriteriaQuery.class);
+        @SuppressWarnings("unchecked")
+        Subquery<Long> subquery = mock(Subquery.class);
+        Root<OrderItem> orderItemRoot = mock(Root.class);
+        Path<Long> rootIdPath = mockPath();
+        Path<Long> orderIdPath = mockPath();
+        Path<Object> productNamePath = mockPath();
+        Predicate equalPredicate = mock(Predicate.class);
+        Predicate likePredicate = mock(Predicate.class);
+        Predicate andPredicate = mock(Predicate.class);
+        Predicate existsPredicate = mock(Predicate.class);
+
+        when(query.subquery(Long.class)).thenReturn(subquery);
+        when(subquery.from(OrderItem.class)).thenReturn(orderItemRoot);
+        when(orderItemRoot.<Long>get(Constants.Column.ORDER_ORDER_ID_COLUMN)).thenReturn(orderIdPath);
+        when(orderItemRoot.get(Constants.Column.ORDER_ITEM_PRODUCT_NAME_COLUMN)).thenReturn(productNamePath);
+        when(root.<Long>get(Constants.Column.ID_COLUMN)).thenReturn(rootIdPath);
+        when(subquery.select(orderIdPath)).thenReturn(subquery);
+        when(criteriaBuilder.equal(orderIdPath, rootIdPath)).thenReturn(equalPredicate);
+        when(criteriaBuilder.like(any(), anyString())).thenReturn(likePredicate);
+        when(criteriaBuilder.and(equalPredicate, likePredicate)).thenReturn(andPredicate);
+        when(subquery.where(andPredicate)).thenReturn(subquery);
+        when(criteriaBuilder.exists(subquery)).thenReturn(existsPredicate);
+
+        Predicate result = OrderSpecification.withProductName("Tea")
+            .toPredicate(root, query, criteriaBuilder);
+
+        assertThat(result).isSameAs(existsPredicate);
+    }
+
+    @Test
+    void withBillingPhoneNumber_shouldReturnLikePredicateWhenPhonePresent() {
+        Root<Order> root = mock(Root.class);
+        CriteriaQuery<?> query = mock(CriteriaQuery.class);
+        Path<Object> billingAddressPath = mockPath();
+        Path<Object> phonePath = mockPath();
+        Predicate likePredicate = mock(Predicate.class);
+
+        when(root.get(Constants.Column.ORDER_BILLING_ADDRESS_ID_COLUMN)).thenReturn(billingAddressPath);
+        when(billingAddressPath.get(Constants.Column.ORDER_PHONE_COLUMN)).thenReturn(phonePath);
+        when(criteriaBuilder.like(any(), anyString())).thenReturn(likePredicate);
+
+        Predicate result = OrderSpecification.withBillingPhoneNumber("1234567890")
+            .toPredicate(root, query, criteriaBuilder);
+
+        assertThat(result).isSameAs(likePredicate);
+    }
+
+    @Test
+    void withBillingPhoneNumber_shouldReturnConjunctionWhenPhoneEmpty() {
+        Root<Order> root = mock(Root.class);
+        CriteriaQuery<?> query = mock(CriteriaQuery.class);
+
+        when(criteriaBuilder.conjunction()).thenReturn(conjunction);
+
+        Predicate result = OrderSpecification.withBillingPhoneNumber("")
+            .toPredicate(root, query, criteriaBuilder);
+
+        assertThat(result).isSameAs(conjunction);
+    }
+
+    @Test
+    void withCountryName_shouldReturnLikePredicateWhenCountryPresent() {
+        Root<Order> root = mock(Root.class);
+        CriteriaQuery<?> query = mock(CriteriaQuery.class);
+        Path<Object> billingAddressPath = mockPath();
+        Path<Object> countryPath = mockPath();
+        Predicate likePredicate = mock(Predicate.class);
+
+        when(root.get(Constants.Column.ORDER_BILLING_ADDRESS_ID_COLUMN)).thenReturn(billingAddressPath);
+        when(billingAddressPath.get(Constants.Column.ORDER_COUNTRY_NAME_COLUMN)).thenReturn(countryPath);
+        when(criteriaBuilder.like(any(), anyString())).thenReturn(likePredicate);
+
+        Predicate result = OrderSpecification.withCountryName("Viet Nam")
+            .toPredicate(root, query, criteriaBuilder);
+
+        assertThat(result).isSameAs(likePredicate);
+    }
+
+    @Test
+    void withCountryName_shouldReturnConjunctionWhenCountryMissing() {
+        Root<Order> root = mock(Root.class);
+        CriteriaQuery<?> query = mock(CriteriaQuery.class);
+
+        when(criteriaBuilder.conjunction()).thenReturn(conjunction);
+
+        Predicate result = OrderSpecification.withCountryName(null)
+            .toPredicate(root, query, criteriaBuilder);
+
+        assertThat(result).isSameAs(conjunction);
+    }
+
+    @Test
+    void withDateRange_shouldReturnBetweenPredicateWhenBothDatesPresent() {
+        Root<Order> root = mock(Root.class);
+        CriteriaQuery<?> query = mock(CriteriaQuery.class);
+        Path<ZonedDateTime> createdOnPath = mockPath();
         ZonedDateTime createdFrom = ZonedDateTime.now().minusDays(7);
         ZonedDateTime createdTo = ZonedDateTime.now();
-        when(root.get("createdOn")).thenReturn(mock(Path.class));
-        when(criteriaBuilder.between(root.get("createdOn"), createdFrom, createdTo)).thenReturn(mock(Predicate.class));
+        Predicate betweenPredicate = mock(Predicate.class);
 
-        Specification<Order> spec = OrderSpecification.withDateRange(createdFrom, createdTo);
-        Predicate predicate = spec.toPredicate(root, query, criteriaBuilder);
+        when(root.<ZonedDateTime>get(Constants.Column.CREATE_ON_COLUMN)).thenReturn(createdOnPath);
+        when(criteriaBuilder.between(createdOnPath, createdFrom, createdTo)).thenReturn(betweenPredicate);
 
-        assertNotNull(predicate);
+        Predicate result = OrderSpecification.withDateRange(createdFrom, createdTo)
+            .toPredicate(root, query, criteriaBuilder);
+
+        assertThat(result).isSameAs(betweenPredicate);
+    }
+
+    @Test
+    void withDateRange_shouldReturnConjunctionWhenOneDateMissing() {
+        Root<Order> root = mock(Root.class);
+        CriteriaQuery<?> query = mock(CriteriaQuery.class);
+
+        when(criteriaBuilder.conjunction()).thenReturn(conjunction);
+
+        Predicate result = OrderSpecification.withDateRange(ZonedDateTime.now(), null)
+            .toPredicate(root, query, criteriaBuilder);
+
+        assertThat(result).isSameAs(conjunction);
+    }
+
+    @Test
+    void findOrderByWithMulCriteria_shouldFetchAddressesForEntityQuery() {
+        Root<Order> root = mock(Root.class);
+        CriteriaQuery<?> query = mock(CriteriaQuery.class);
+        Predicate combined = mock(Predicate.class);
+
+        when(query.getResultType()).thenReturn((Class) Order.class);
+        when(criteriaBuilder.conjunction()).thenReturn(conjunction);
+        when(criteriaBuilder.and(any(Predicate[].class))).thenReturn(combined);
+
+        Predicate result = OrderSpecification.findOrderByWithMulCriteria(
+            List.of(),
+            null,
+            "",
+            "",
+            null,
+            null,
+            null
+        ).toPredicate(root, query, criteriaBuilder);
+
+        assertThat(result).isSameAs(combined);
+        verify(root).fetch(Constants.Column.ORDER_SHIPPING_ADDRESS_ID_COLUMN, jakarta.persistence.criteria.JoinType.LEFT);
+        verify(root).fetch(Constants.Column.ORDER_BILLING_ADDRESS_ID_COLUMN, jakarta.persistence.criteria.JoinType.LEFT);
+    }
+
+    @Test
+    void findOrderByWithMulCriteria_shouldSkipFetchForCountQuery() {
+        Root<Order> root = mock(Root.class);
+        CriteriaQuery<?> query = mock(CriteriaQuery.class);
+        Predicate combined = mock(Predicate.class);
+
+        when(query.getResultType()).thenReturn((Class) Long.class);
+        when(criteriaBuilder.conjunction()).thenReturn(conjunction);
+        when(criteriaBuilder.and(any(Predicate[].class))).thenReturn(combined);
+
+        Predicate result = OrderSpecification.findOrderByWithMulCriteria(
+            List.of(),
+            null,
+            null,
+            null,
+            "",
+            null,
+            null
+        ).toPredicate(root, query, criteriaBuilder);
+
+        assertThat(result).isSameAs(combined);
+        verify(root, never()).fetch(anyString(), any());
+    }
+
+    @SuppressWarnings("unchecked")
+    private static <T> Path<T> mockPath() {
+        return mock(Path.class);
     }
 }
