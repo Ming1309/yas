@@ -119,5 +119,18 @@ class FileSystemRepositoryTest {
         assertThrows(IllegalStateException.class, () -> fileSystemRepository.getFile(filePathStr));
     }
 
+    @Test
+    void testGetFile_whenPathIsDirectory_thenThrowsRuntimeException() throws IOException {
+        String filename = "test-file.png";
+        String filePathStr = Paths.get(TEST_URL, filename).toString();
+
+        when(filesystemConfig.getDirectory()).thenReturn(TEST_URL);
+
+        Path filePath = Paths.get(filePathStr);
+        Files.createDirectories(filePath);
+
+        assertThrows(RuntimeException.class, () -> fileSystemRepository.getFile(filePathStr));
+    }
+
 }
 
