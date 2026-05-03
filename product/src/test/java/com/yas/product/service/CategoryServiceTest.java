@@ -1,43 +1,55 @@
 package com.yas.product.service;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.when;
+import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.Mockito.*;
 
-import com.yas.product.ProductApplication;
+import com.yas.commonlibrary.exception.BadRequestException;
+import com.yas.commonlibrary.exception.DuplicatedException;
+import com.yas.commonlibrary.exception.NotFoundException;
 import com.yas.product.model.Category;
 import com.yas.product.repository.CategoryRepository;
-import com.yas.product.repository.ProductCategoryRepository;
 import com.yas.product.viewmodel.NoFileMediaVm;
 import com.yas.product.viewmodel.category.CategoryGetDetailVm;
 import com.yas.product.viewmodel.category.CategoryGetVm;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Assertions;
+import com.yas.product.viewmodel.category.CategoryListGetVm;
+import com.yas.product.viewmodel.category.CategoryPostVm;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 
-@SpringBootTest(classes = ProductApplication.class)
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
+
+@ExtendWith(MockitoExtension.class)
 class CategoryServiceTest {
-    @Autowired
+
+    @Mock
     private CategoryRepository categoryRepository;
-    @Autowired
-    private ProductCategoryRepository productCategoryRepository;
-    @MockitoBean
+
+    @Mock
     private MediaService mediaService;
-    @Autowired
+
+    @InjectMocks
     private CategoryService categoryService;
 
     private Category category;
     private NoFileMediaVm noFileMediaVm;
+    private CategoryPostVm categoryPostVm;
 
     @BeforeEach
     void setUp() {
-
         category = new Category();
+        category.setId(1L);
         category.setName("name");
         category.setSlug("slug");
         category.setDescription("description");
@@ -46,38 +58,241 @@ class CategoryServiceTest {
         category.setDisplayOrder((short) 1);
         category.setIsPublished(true);
         category.setImageId(1L);
-        categoryRepository.save(category);
 
         noFileMediaVm = new NoFileMediaVm(1L, "caption", "fileName", "mediaType", "url");
     }
 
-    @AfterEach
-    void tearDown() {
-        productCategoryRepository.deleteAll();
-        categoryRepository.deleteAll();
+    @Test
+    void getCategoryById_whenFound_returnsDetailVm() {
+        when(categoryRepository.findById(1L)).thenReturn(Optional.of(category));
+        when(mediaService.getMedia(1L)).thenReturn(noFileMediaVm);
+        
+        CategoryGetDetailVm categoryGetDetailVm = categoryService.getCategoryById(1L);
+        
+        assertNotNull(categoryGetDetailVm);
+        assertEquals("name", categoryGetDetailVm.name());
+        assertEquals("url", categoryGetDetailVm.categoryImage().url());
     }
 
     @Test
-    void getCategoryById_Success() {
-        when(mediaService.getMedia(category.getImageId())).thenReturn(noFileMediaVm);
-        CategoryGetDetailVm categoryGetDetailVm = categoryService.getCategoryById(category.getId());
-        assertNotNull(categoryGetDetailVm);
-        assertEquals("name", categoryGetDetailVm.name());
+    void getCategoryById_whenNotFound_throwsNotFoundException() {
+        when(categoryRepository.findById(99L)).thenReturn(Optional.empty());
+        assertThrows(NotFoundException.class, () -> categoryService.getCategoryById(99L));
     }
 
     @Test
     void getCategories_Success() {
-        when(mediaService.getMedia(any())).thenReturn(noFileMediaVm);
-        Assertions.assertEquals(1, categoryService.getCategories("name").size());
-        CategoryGetVm categoryGetVm = categoryService.getCategories("name").getFirst();
-        assertEquals("name", categoryGetVm.name());
+        when(categoryRepository.findByNameContainingIgnoreCase("name")).thenReturn(List.of(category));
+        when(mediaService.getMedia(1L)).thenReturn(noFileMediaVm);
+        
+        List<CategoryGetVm> result = categoryService.getCategories("name");
+        
+        assertEquals(1, result.size());
+        assertEquals("name", result.get(0).name());
     }
 
     @Test
-    void getCategoriesPageable_Success() {
-        when(mediaService.getMedia(category.getImageId())).thenReturn(noFileMediaVm);
-        Assertions.assertEquals(1, categoryService.getPageableCategories(0, 1).categoryContent().size());
-        CategoryGetVm categoryGetVm = categoryService.getCategories("a").getFirst();
-        assertEquals("name", categoryGetVm.name());
+    void getPageableCategories_Success() {
+        Page<Category> page = new PageImpl<>(List.of(category), PageRequest.of(0, 10), 1);
+        when(categoryRepository.findAll(any(Pageable.class))).thenReturn(page);
+        
+        CategoryListGetVm result = categoryService.getPageableCategories(0, 10);
+        
+        assertEquals(1, result.categoryContent().size());
+        assertEquals("name", result.categoryContent().get(0).name());
+    }
+
+    @Test
+    void create_whenDuplicateName_throwsDuplicatedException() {
+        categoryPostVm = new CategoryPostVm("name", "slug", "desc", 1L, "metaK", "metaD", (short) 1, true, 1L);
+        when(categoryRepository.findExistedName("name", null)).thenReturn(category);
+        
+        assertThrows(DuplicatedException.class, () -> categoryService.create(categoryPostVm));
+    }
+
+    @Test
+    void create_whenParentNotFound_throwsBadRequestException() {
+        categoryPostVm = new CategoryPostVm("name", "slug", "desc", 99L, "metaK", "metaD", (short) 1, true, 1L);
+        when(categoryRepository.findExistedName("name", null)).thenReturn(null);
+        when(categoryRepository.findById(99L)).thenReturn(Optional.empty());
+        
+        assertThrows(BadRequestException.class, () -> categoryService.create(categoryPostVm));
+    }
+
+    @Test
+    void create_whenParentExists_setsParentAndSaves() {
+        categoryPostVm = new CategoryPostVm("name", "slug", "desc", 2L, "metaK", "metaD", (short) 1, true, 1L);
+        when(categoryRepository.findExistedName("name", null)).thenReturn(null);
+        
+        Category parent = new Category();
+        parent.setId(2L);
+        when(categoryRepository.findById(2L)).thenReturn(Optional.of(parent));
+        when(categoryRepository.save(any(Category.class))).thenReturn(category);
+        
+        Category result = categoryService.create(categoryPostVm);
+        
+        assertNotNull(result);
+        verify(categoryRepository, times(1)).save(any(Category.class));
+    }
+
+    @Test
+    void create_whenNoParent_savesCategory() {
+        categoryPostVm = new CategoryPostVm("name", "slug", "desc", null, "metaK", "metaD", (short) 1, true, 1L);
+        when(categoryRepository.findExistedName("name", null)).thenReturn(null);
+        when(categoryRepository.save(any(Category.class))).thenReturn(category);
+        
+        Category result = categoryService.create(categoryPostVm);
+        
+        assertNotNull(result);
+        verify(categoryRepository, times(1)).save(any(Category.class));
+    }
+
+    @Test
+    void update_whenDuplicateName_throwsDuplicatedException() {
+        categoryPostVm = new CategoryPostVm("name", "slug", "desc", null, "metaK", "metaD", (short) 1, true, 1L);
+        when(categoryRepository.findExistedName("name", 1L)).thenReturn(new Category());
+        
+        assertThrows(DuplicatedException.class, () -> categoryService.update(categoryPostVm, 1L));
+    }
+
+    @Test
+    void update_whenCategoryNotFound_throwsNotFoundException() {
+        categoryPostVm = new CategoryPostVm("name", "slug", "desc", null, "metaK", "metaD", (short) 1, true, 1L);
+        when(categoryRepository.findExistedName("name", 1L)).thenReturn(null);
+        when(categoryRepository.findById(1L)).thenReturn(Optional.empty());
+        
+        assertThrows(NotFoundException.class, () -> categoryService.update(categoryPostVm, 1L));
+    }
+
+    @Test
+    void update_whenParentIsItself_throwsBadRequestException() {
+        categoryPostVm = new CategoryPostVm("name", "slug", "desc", 1L, "metaK", "metaD", (short) 1, true, 1L);
+        when(categoryRepository.findExistedName("name", 1L)).thenReturn(null);
+        when(categoryRepository.findById(1L)).thenReturn(Optional.of(category));
+        
+        assertThrows(BadRequestException.class, () -> categoryService.update(categoryPostVm, 1L));
+    }
+
+    @Test
+    void update_whenParentIsValid_updatesParent() {
+        categoryPostVm = new CategoryPostVm("name", "slug", "desc", 2L, "metaK", "metaD", (short) 1, true, 1L);
+        when(categoryRepository.findExistedName("name", 1L)).thenReturn(null);
+        when(categoryRepository.findById(1L)).thenReturn(Optional.of(category));
+        
+        Category parent = new Category();
+        parent.setId(2L);
+        when(categoryRepository.findById(2L)).thenReturn(Optional.of(parent));
+        
+        categoryService.update(categoryPostVm, 1L);
+        
+        assertEquals(parent, category.getParent());
+    }
+
+    @Test
+    void update_whenParentNull_clearsParent() {
+        categoryPostVm = new CategoryPostVm("name", "slug", "desc", null, "metaK", "metaD", (short) 1, true, 1L);
+        when(categoryRepository.findExistedName("name", 1L)).thenReturn(null);
+        when(categoryRepository.findById(1L)).thenReturn(Optional.of(category));
+        
+        categoryService.update(categoryPostVm, 1L);
+        
+        assertNull(category.getParent());
+    }
+
+    @Test
+    void getCategoryByIds_returnsFilteredCategories() {
+        when(categoryRepository.findAllById(anyList())).thenReturn(List.of(category));
+        List<CategoryGetVm> result = categoryService.getCategoryByIds(List.of(1L));
+        assertEquals(1, result.size());
+    }
+
+    @Test
+    void getTopNthCategories_returnsLimitedList() {
+        when(categoryRepository.findCategoriesOrderedByProductCount(any(Pageable.class))).thenReturn(List.of("name"));
+        List<String> result = categoryService.getTopNthCategories(1);
+        assertEquals(1, result.size());
+        assertEquals("name", result.get(0));
+    }
+
+    // ── getCategoryById missing branches ─────────────────────────────────────
+
+    @Test
+    void getCategoryById_whenImageIdNull_returnsNullCategoryImage() {
+        category.setImageId(null);
+        when(categoryRepository.findById(1L)).thenReturn(Optional.of(category));
+
+        CategoryGetDetailVm result = categoryService.getCategoryById(1L);
+
+        assertNotNull(result);
+        assertNull(result.categoryImage());
+    }
+
+    @Test
+    void getCategoryById_whenParentExists_returnsParentId() {
+        Category parent = new Category();
+        parent.setId(10L);
+        category.setParent(parent);
+        when(categoryRepository.findById(1L)).thenReturn(Optional.of(category));
+        when(mediaService.getMedia(1L)).thenReturn(noFileMediaVm);
+
+        CategoryGetDetailVm result = categoryService.getCategoryById(1L);
+
+        assertEquals(10L, result.parentId());
+    }
+
+    // ── getCategories missing branches ───────────────────────────────────────
+
+    @Test
+    void getCategories_whenImageIdNull_returnsCategoryWithNullImage() {
+        category.setImageId(null);
+        when(categoryRepository.findByNameContainingIgnoreCase("name")).thenReturn(List.of(category));
+
+        List<CategoryGetVm> result = categoryService.getCategories("name");
+
+        assertEquals(1, result.size());
+        assertNull(result.get(0).categoryImage());
+    }
+
+    @Test
+    void getCategories_whenCategoryHasParent_returnsParentId() {
+        Category parent = new Category();
+        parent.setId(5L);
+        category.setParent(parent);
+        when(categoryRepository.findByNameContainingIgnoreCase("name")).thenReturn(List.of(category));
+        when(mediaService.getMedia(1L)).thenReturn(noFileMediaVm);
+
+        List<CategoryGetVm> result = categoryService.getCategories("name");
+
+        assertEquals(1, result.size());
+        assertEquals(5L, result.get(0).parentId());
+    }
+
+    // ── update missing branches ──────────────────────────────────────────────
+
+    @Test
+    void update_whenParentNotFound_throwsBadRequestException() {
+        categoryPostVm = new CategoryPostVm("name", "slug", "desc", 99L, "metaK", "metaD", (short) 1, true, 1L);
+        when(categoryRepository.findExistedName("name", 1L)).thenReturn(null);
+        when(categoryRepository.findById(1L)).thenReturn(Optional.of(category));
+        when(categoryRepository.findById(99L)).thenReturn(Optional.empty());
+
+        assertThrows(BadRequestException.class, () -> categoryService.update(categoryPostVm, 1L));
+    }
+
+    @Test
+    void checkParent_whenParentHasGrandparentWithSameId_throwsBadRequestException() {
+        // category id=1, parentCategory id=2, grandparent id=1 → recursive checkParent detects cycle
+        Category grandparent = new Category();
+        grandparent.setId(1L); // same as category.getId()
+        Category parent = new Category();
+        parent.setId(2L);
+        parent.setParent(grandparent);
+
+        categoryPostVm = new CategoryPostVm("name", "slug", "desc", 2L, "metaK", "metaD", (short) 1, true, 1L);
+        when(categoryRepository.findExistedName("name", 1L)).thenReturn(null);
+        when(categoryRepository.findById(1L)).thenReturn(Optional.of(category));
+        when(categoryRepository.findById(2L)).thenReturn(Optional.of(parent));
+
+        assertThrows(BadRequestException.class, () -> categoryService.update(categoryPostVm, 1L));
     }
 }
