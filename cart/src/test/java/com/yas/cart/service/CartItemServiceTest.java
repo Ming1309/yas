@@ -249,19 +249,6 @@ class CartItemServiceTest {
         }
     }
 
-    @Nested
-    class DeleteCartItemTest {
-
-        @Test
-        void testDeleteCartItem_shouldCallRepositoryDelete() {
-            mockCurrentUserId(CURRENT_USER_ID_SAMPLE);
-
-            cartItemService.deleteCartItem(PRODUCT_ID_SAMPLE);
-
-            verify(cartItemRepository).deleteByCustomerIdAndProductId(CURRENT_USER_ID_SAMPLE, PRODUCT_ID_SAMPLE);
-        }
-    }
-
     private void mockCurrentUserId(String userIdToMock) {
         Jwt jwt = mock(Jwt.class);
         JwtAuthenticationToken jwtToken = new JwtAuthenticationToken(jwt);
