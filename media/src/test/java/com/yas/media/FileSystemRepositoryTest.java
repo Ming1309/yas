@@ -12,6 +12,8 @@ import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.attribute.PosixFilePermission;
+import java.util.Set;
 import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -80,6 +82,18 @@ class FileSystemRepositoryTest {
     }
 
     @Test
+    void testPersistFile_whenFilenameIsInvalid_thenThrowsException() {
+        String filename = "../test-file.png";
+        byte[] content = "test-content".getBytes();
+
+        File directory = new File(TEST_URL);
+        directory.mkdirs();
+        when(filesystemConfig.getDirectory()).thenReturn(TEST_URL);
+
+        assertThrows(IllegalArgumentException.class, () -> fileSystemRepository.persistFile(filename, content));
+    }
+
+    @Test
     void testGetFile_whenDirectIsExist_thenReturnFile() throws IOException {
         String filename = "test-file.png";
         String filePathStr = Paths.get(TEST_URL, filename).toString();
@@ -105,6 +119,25 @@ class FileSystemRepositoryTest {
         when(filesystemConfig.getDirectory()).thenReturn(directoryPath);
 
         assertThrows(IllegalStateException.class, () -> fileSystemRepository.getFile(filePathStr));
+    }
+
+    @Test
+    void testPersistFile_whenDirectoryIsNotAccessible_thenThrowsException() throws IOException {
+        String filename = "test-file.png";
+        byte[] content = "test-content".getBytes();
+
+        Path directoryPath = Paths.get(TEST_URL);
+        Files.createDirectories(directoryPath);
+        Set<PosixFilePermission> originalPermissions = Files.getPosixFilePermissions(directoryPath);
+        Files.setPosixFilePermissions(directoryPath, Set.of());
+
+        try {
+            when(filesystemConfig.getDirectory()).thenReturn(TEST_URL);
+
+            assertThrows(IllegalStateException.class, () -> fileSystemRepository.persistFile(filename, content));
+        } finally {
+            Files.setPosixFilePermissions(directoryPath, originalPermissions);
+        }
     }
 
 }
