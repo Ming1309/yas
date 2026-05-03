@@ -87,4 +87,101 @@ class ProductServiceTest {
 
         return List.of(product1, product2, product3);
     }
+
+    @Test
+    void getProductById_WhenProductExists_ReturnProduct() {
+        List<Long> ids = List.of(1L);
+        URI url = UriComponentsBuilder
+            .fromUriString("http://api.yas.local/media")
+            .path("/storefront/products/list-featured")
+            .queryParam("productId", ids)
+            .build()
+            .toUri();
+
+        when(serviceUrlConfig.product()).thenReturn("http://api.yas.local/media");
+        when(restClient.get()).thenReturn(requestHeadersUriSpec);
+        when(requestHeadersUriSpec.uri(url)).thenReturn(requestHeadersUriSpec);
+        when(requestHeadersUriSpec.retrieve()).thenReturn(responseSpec);
+        when(responseSpec.toEntity(new ParameterizedTypeReference<List<ProductThumbnailVm>>() {}))
+            .thenReturn(ResponseEntity.ok(List.of(getProductThumbnailVms().getFirst())));
+
+        ProductThumbnailVm result = productService.getProductById(1L);
+
+        assertThat(result).isNotNull();
+        assertThat(result.id()).isEqualTo(1L);
+    }
+
+    @Test
+    void getProductById_WhenProductDoesNotExist_ReturnNull() {
+        List<Long> ids = List.of(99L);
+        URI url = UriComponentsBuilder
+            .fromUriString("http://api.yas.local/media")
+            .path("/storefront/products/list-featured")
+            .queryParam("productId", ids)
+            .build()
+            .toUri();
+
+        when(serviceUrlConfig.product()).thenReturn("http://api.yas.local/media");
+        when(restClient.get()).thenReturn(requestHeadersUriSpec);
+        when(requestHeadersUriSpec.uri(url)).thenReturn(requestHeadersUriSpec);
+        when(requestHeadersUriSpec.retrieve()).thenReturn(responseSpec);
+        when(responseSpec.toEntity(new ParameterizedTypeReference<List<ProductThumbnailVm>>() {}))
+            .thenReturn(ResponseEntity.ok(List.of()));
+
+        ProductThumbnailVm result = productService.getProductById(99L);
+
+        assertThat(result).isNull();
+    }
+
+    @Test
+    void existsById_WhenProductExists_ReturnTrue() {
+        List<Long> ids = List.of(1L);
+        URI url = UriComponentsBuilder
+            .fromUriString("http://api.yas.local/media")
+            .path("/storefront/products/list-featured")
+            .queryParam("productId", ids)
+            .build()
+            .toUri();
+
+        when(serviceUrlConfig.product()).thenReturn("http://api.yas.local/media");
+        when(restClient.get()).thenReturn(requestHeadersUriSpec);
+        when(requestHeadersUriSpec.uri(url)).thenReturn(requestHeadersUriSpec);
+        when(requestHeadersUriSpec.retrieve()).thenReturn(responseSpec);
+        when(responseSpec.toEntity(new ParameterizedTypeReference<List<ProductThumbnailVm>>() {}))
+            .thenReturn(ResponseEntity.ok(List.of(getProductThumbnailVms().getFirst())));
+
+        boolean exists = productService.existsById(1L);
+
+        assertThat(exists).isTrue();
+    }
+
+    @Test
+    void existsById_WhenProductDoesNotExist_ReturnFalse() {
+        List<Long> ids = List.of(99L);
+        URI url = UriComponentsBuilder
+            .fromUriString("http://api.yas.local/media")
+            .path("/storefront/products/list-featured")
+            .queryParam("productId", ids)
+            .build()
+            .toUri();
+
+        when(serviceUrlConfig.product()).thenReturn("http://api.yas.local/media");
+        when(restClient.get()).thenReturn(requestHeadersUriSpec);
+        when(requestHeadersUriSpec.uri(url)).thenReturn(requestHeadersUriSpec);
+        when(requestHeadersUriSpec.retrieve()).thenReturn(responseSpec);
+        when(responseSpec.toEntity(new ParameterizedTypeReference<List<ProductThumbnailVm>>() {}))
+            .thenReturn(ResponseEntity.ok(List.of()));
+
+        boolean exists = productService.existsById(99L);
+
+        assertThat(exists).isFalse();
+    }
+
+    @Test
+    void handleProductThumbnailFallback_ShouldThrowException() {
+        Throwable throwable = new RuntimeException("Test exception");
+        org.junit.jupiter.api.Assertions.assertThrows(RuntimeException.class, () -> {
+            productService.handleProductThumbnailFallback(throwable);
+        });
+    }
 }

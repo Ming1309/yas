@@ -19,14 +19,14 @@ on:
 
 jobs:
   # ============================================================================
-  # PHASE 1: TEST - Chạy unit tests, code quality checks, security analysis
+  # PHASE 1: TEST - Run unit tests, code quality checks, security analysis
   # ============================================================================
   Test:
     runs-on: ubuntu-latest
     permissions:
       contents: read
       checks: write
-      security-events: write
+      pull-requests: write
     env:
       FROM_ORIGINAL_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name == github.repository || github.ref == 'refs/heads/main' }}
     steps:
@@ -38,12 +38,15 @@ jobs:
       - name: Setup JDK environment
         uses: ./.github/workflows/actions
 
-      - name: Run Maven Tests and Build
-        run: mvn clean install -pl cart -am
+      - name: Install dependencies (skip common-library tests)
+        run: mvn install -pl cart -am -DskipTests -Djacoco.skip=true --batch-mode --no-transfer-progress
+
+      - name: Run Maven Tests
+        run: mvn test -f cart --batch-mode --no-transfer-progress
 
       - name: Run Maven Checkstyle
         if: ${{ env.FROM_ORIGINAL_REPOSITORY == 'true' }}
-        run: mvn checkstyle:checkstyle -pl cart -am -Dcheckstyle.output.file=cart-checkstyle-result.xml
+        run: mvn checkstyle:checkstyle -f cart -Dcheckstyle.output.file=cart-checkstyle-result.xml --batch-mode --no-transfer-progress
 
       - name: Upload Checkstyle Result
         if: ${{ env.FROM_ORIGINAL_REPOSITORY == 'true' }}
@@ -51,7 +54,7 @@ jobs:
         with:
           path: "**/cart-checkstyle-result.xml"
 
-      - name: Publish Test Results
+      - name: Test Results
         uses: dorny/test-reporter@v1
         if: ${{ env.FROM_ORIGINAL_REPOSITORY == 'true' && (success() || failure()) && hashFiles('cart/**/target/surefire-reports/TEST-*.xml', 'cart/**/target/failsafe-reports/TEST-*.xml') != '' }}
         with:
@@ -69,6 +72,12 @@ jobs:
             cart/**/target/failsafe-reports/TEST-*.xml
           if-no-files-found: warn
           retention-days: 14
+
+      - name: Analyze with sonar cloud
+        if: ${{ env.FROM_ORIGINAL_REPOSITORY == 'true' }}
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: mvn org.sonarsource.scanner.maven:sonar-maven-plugin:sonar -f cart --batch-mode --no-transfer-progress
 
       - name: OWASP Dependency Check
         if: ${{ env.FROM_ORIGINAL_REPOSITORY == 'true' }}
@@ -89,12 +98,6 @@ jobs:
           path: ${{github.workspace}}/reports
           if-no-files-found: warn
           retention-days: 14
-
-      - name: Analyze with SonarCloud
-        if: ${{ env.FROM_ORIGINAL_REPOSITORY == 'true' }}
-        env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-        run: mvn org.sonarsource.scanner.maven:sonar-maven-plugin:sonar -pl cart -am
 
       - name: Add coverage report to PR
         uses: madrapps/jacoco-report@v1.6.1
@@ -120,13 +123,16 @@ jobs:
           if-no-files-found: warn
           retention-days: 14
 
+      - name: Enforce JaCoCo Coverage Threshold
+        run: mvn jacoco:check@check -f cart --batch-mode --no-transfer-progress
+
   # ============================================================================
-  # PHASE 2: BUILD - Build Docker image và push lên registry (chỉ chạy trên main branch)
+  # PHASE 2: BUILD - Build Docker image and push to registry
   # ============================================================================
   Build:
-    needs: Test # Phụ thuộc vào phase Test thành công
+    needs: Test
     runs-on: ubuntu-latest
-    if: ${{ github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch' }} # Chỉ chạy trên main branch hoặc workflow_dispatch
+    if: ${{ github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch' }}
     permissions:
       contents: read
       packages: write
