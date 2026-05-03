@@ -28,6 +28,7 @@ import com.yas.media.viewmodel.MediaPostVm;
 import com.yas.media.viewmodel.MediaVm;
 import com.yas.media.viewmodel.NoFileMediaVm;
 import java.io.ByteArrayInputStream;
+import java.io.IOException;
 import java.io.InputStream;
 import java.util.Arrays;
 import java.util.Collections;
@@ -84,7 +85,7 @@ class MediaServiceUnitTest {
 
         @Test
         @DisplayName("Should save media with PNG type successfully")
-        void saveMedia_whenTypePNG_thenSaveSuccess() {
+        void saveMedia_whenTypePNG_thenSaveSuccess() throws IOException {
             byte[] pngFileContent = new byte[] {};
             MultipartFile multipartFile = new MockMultipartFile(
                 "file",
@@ -108,7 +109,7 @@ class MediaServiceUnitTest {
 
         @Test
         @DisplayName("Should save media with JPEG type successfully")
-        void saveMedia_whenTypeJPEG_thenSaveSuccess() {
+        void saveMedia_whenTypeJPEG_thenSaveSuccess() throws IOException {
             byte[] jpegFileContent = new byte[] {};
             MultipartFile multipartFile = new MockMultipartFile(
                 "file",
@@ -132,7 +133,7 @@ class MediaServiceUnitTest {
 
         @Test
         @DisplayName("Should save media with GIF type successfully")
-        void saveMedia_whenTypeGIF_thenSaveSuccess() {
+        void saveMedia_whenTypeGIF_thenSaveSuccess() throws IOException {
             byte[] gifFileContent = new byte[] {};
             MultipartFile multipartFile = new MockMultipartFile(
                 "file",
@@ -155,7 +156,7 @@ class MediaServiceUnitTest {
 
         @Test
         @DisplayName("Should use original filename when override is null")
-        void saveMedia_whenFileNameIsNull_thenUseOriginalFileName() {
+        void saveMedia_whenFileNameIsNull_thenUseOriginalFileName() throws IOException {
             byte[] pngFileContent = new byte[] {};
             MultipartFile multipartFile = new MockMultipartFile(
                 "file",
@@ -177,7 +178,7 @@ class MediaServiceUnitTest {
 
         @Test
         @DisplayName("Should use original filename when override is empty")
-        void saveMedia_whenFileNameIsEmpty_thenUseOriginalFileName() {
+        void saveMedia_whenFileNameIsEmpty_thenUseOriginalFileName() throws IOException {
             byte[] pngFileContent = new byte[] {};
             MultipartFile multipartFile = new MockMultipartFile(
                 "file",
@@ -199,7 +200,7 @@ class MediaServiceUnitTest {
 
         @Test
         @DisplayName("Should use original filename when override is blank")
-        void saveMedia_whenFileNameIsBlank_thenUseOriginalFileName() {
+        void saveMedia_whenFileNameIsBlank_thenUseOriginalFileName() throws IOException {
             byte[] pngFileContent = new byte[] {};
             MultipartFile multipartFile = new MockMultipartFile(
                 "file",
