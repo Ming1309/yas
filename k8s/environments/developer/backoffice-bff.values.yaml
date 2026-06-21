@@ -1,11 +1,11 @@
 backend:
   image:
-    repository: docker.io/mingpham/yas-storefront-bff
+    repository: docker.io/mingpham/yas-backoffice-bff
     tag: main
 
   service:
     type: NodePort
-    nodePort: 30081
+    nodePort: 30089
 
   ingress:
     enabled: false

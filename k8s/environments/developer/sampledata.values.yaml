@@ -1,14 +1,12 @@
 backend:
   image:
-    repository: docker.io/mingpham/yas-storefront-bff
+    repository: docker.io/mingpham/yas-sampledata
     tag: main
 
-  service:
-    type: NodePort
-    nodePort: 30081
+  replicaCount: 0
 
-  ingress:
-    enabled: false
+  service:
+    type: ClusterIP
 
   serviceMonitor:
     enabled: false

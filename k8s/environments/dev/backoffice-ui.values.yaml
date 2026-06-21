@@ -1,11 +1,11 @@
 ui:
   image:
-    repository: docker.io/mingpham/yas-storefront
+    repository: docker.io/mingpham/yas-backoffice
     tag: main
 
   service:
     type: NodePort
-    nodePort: 30082
+    nodePort: 30086
 
   resources:
     requests:

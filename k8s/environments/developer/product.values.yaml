@@ -1,6 +1,6 @@
 backend:
   image:
-    repository: docker.io/yas-group8/yas-product
+    repository: docker.io/mingpham/yas-product
     tag: main
 
   service:
