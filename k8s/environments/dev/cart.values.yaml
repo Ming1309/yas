@@ -1,0 +1,18 @@
+backend:
+  image:
+    repository: docker.io/yas-group8/yas-cart
+    tag: main
+
+  service:
+    type: ClusterIP
+
+  serviceMonitor:
+    enabled: false
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 384Mi
+    limits:
+      cpu: 700m
+      memory: 768Mi

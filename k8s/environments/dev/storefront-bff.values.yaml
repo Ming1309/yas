@@ -1,0 +1,19 @@
+backend:
+  image:
+    repository: docker.io/yas-group8/yas-storefront-bff
+    tag: main
+
+  service:
+    type: NodePort
+    nodePort: 30081
+
+  serviceMonitor:
+    enabled: false
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 384Mi
+    limits:
+      cpu: 700m
+      memory: 768Mi
