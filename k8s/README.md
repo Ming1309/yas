@@ -31,9 +31,8 @@ This guide deploys the useful demo path first:
   - `backoffice-ui`
 - `swagger-ui`
 
-It intentionally skips Kafka, Elasticsearch, and `search` in the first pass.
-Kafka/Search can be added later, but they should not block the CD/NodePort/BFF
-demo.
+Kafka, Elasticsearch, and `search` are still best deployed after the core
+services are healthy, but this guide now includes the working Kafka/Search path.
 
 ## Important Decisions
 
@@ -903,45 +902,129 @@ Open:
 https://<VM_EXTERNAL_IP>:8080
 ```
 
-## 15. Kafka/Search note
+## 15. Kafka, Elasticsearch, and Search
 
-Do not deploy Kafka/Search in the first pass.
+Deploy Kafka/Search only after the core services are healthy. The original YAS
+Kafka chart used ZooKeeper, but Strimzi `0.47.0` supports only KRaft clusters.
+This repo keeps the API at `kafka.strimzi.io/v1beta2`, but the chart is migrated
+to `KafkaNodePool` + KRaft.
 
-What happened:
+Install Strimzi:
 
-- Latest Strimzi installed CRDs as `kafka.strimzi.io/v1`.
-- The old YAS Kafka chart expected `kafka.strimzi.io/v1beta2`.
-- Installing old Strimzi `0.45.0` avoided the API mismatch but failed on new
-  Kubernetes because the operator could not parse the Kubernetes version field
-  `emulationMajor`.
+```bash
+helm repo add strimzi https://strimzi.io/charts/ || true
+helm repo update
 
-Symptoms:
+helm upgrade --install kafka-operator strimzi/strimzi-kafka-operator \
+  --namespace kafka \
+  --create-namespace \
+  --version 0.47.0
 
-```txt
-no matches for kind "Kafka" in version "kafka.strimzi.io/v1beta2"
+kubectl rollout status deploy/strimzi-cluster-operator -n kafka --timeout=180s
 ```
 
-and:
+Build the Kafka Connect image with the Debezium PostgreSQL plugin when the
+Docker Hub image is not available yet:
 
-```txt
-Detection of Kubernetes version failed
-Unrecognized field "emulationMajor"
+```bash
+docker build -t mingpham/debezium-connect-postgresql:0.47.0 \
+  -f k8s/deploy/kafka/debezium-connect/Dockerfile .
+
+docker push mingpham/debezium-connect-postgresql:0.47.0
 ```
 
-Decision:
+Deploy Kafka and Debezium:
 
-- Skip Kafka/Search for CD, NodePort, BFF, Keycloak, and Service Mesh demo.
-- Add it later by either:
-  - using a Kubernetes version compatible with the old Strimzi/chart, or
-  - migrating the YAS Kafka chart to current Strimzi `v1` schema.
+```bash
+helm upgrade --install kafka-cluster k8s/deploy/kafka/kafka-cluster \
+  --namespace kafka \
+  --set kafka.replicas=1 \
+  --set postgresql.username=yasadminuser \
+  --set postgresql.password=admin
+
+kubectl get pods -n kafka -w
+kubectl get kafka,kafkanodepool,kafkaconnect,kafkaconnector -n kafka
+```
+
+Expected pods:
+
+```txt
+kafka-cluster-dual-role-0
+debezium-connect-cluster-connect-0
+kafka-cluster-entity-operator-...
+strimzi-cluster-operator-...
+```
+
+Expected connector:
+
+```txt
+debezium-connector-postgresql-product-db   READY=True
+```
+
+Install Elasticsearch `9.2.3`. If an old Elasticsearch `8.x` PVC exists, delete
+it first in dev because Elasticsearch does not allow a direct data upgrade from
+`8.8.1` to `9.2.3`.
+
+```bash
+helm upgrade --install elasticsearch-cluster k8s/deploy/elasticsearch/elasticsearch-cluster \
+  --namespace elasticsearch \
+  --create-namespace \
+  --set elasticsearch.replicas=1
+
+kubectl get elasticsearch -n elasticsearch
+kubectl get pods -n elasticsearch -w
+```
+
+Deploy search:
+
+```bash
+helm dependency build k8s/charts/search
+
+helm upgrade --install search k8s/charts/search \
+  -n yas-dev \
+  -f k8s/environments/dev/search.values.yaml \
+  --set backend.image.repository=ghcr.io/nashtech-garage/yas-search \
+  --set backend.image.tag=latest
+
+kubectl get pods -n yas-dev | grep search
+```
+
+The search service has context path `/search`, so the direct service URL is:
+
+```bash
+kubectl run search-test -n yas-dev --rm -it --image=curlimages/curl --restart=Never -- \
+  curl -i "http://search/search/storefront/catalog-search?keyword=iphone&page=0"
+```
+
+Through storefront BFF:
+
+```bash
+curl -i "http://$VM_IP:30081/api/search/storefront/catalog-search?keyword=iphone&page=0"
+```
+
+If the BFF returns a Next.js HTML 404 page, restart it so it reloads
+`yas-gateway-routes-config-configmap`:
+
+```bash
+kubectl rollout restart deploy/storefront-bff -n yas-dev
+kubectl rollout status deploy/storefront-bff -n yas-dev
+```
 
 Cleanup if Kafka was partially installed:
 
 ```bash
 helm uninstall kafka-cluster -n kafka || true
 helm uninstall kafka-operator -n kafka || true
-kubectl delete kafka,kafkaconnect,kafkaconnector --all -n kafka --ignore-not-found
+kubectl delete kafka,kafkanodepool,kafkaconnect,kafkaconnector --all -n kafka --ignore-not-found
 kubectl delete namespace kafka --ignore-not-found
+```
+
+Cleanup old Elasticsearch dev data when recreating a `9.2.3` cluster from a
+previous `8.x` attempt:
+
+```bash
+kubectl get pvc -n elasticsearch
+kubectl delete pvc elasticsearch-data-elasticsearch-es-node-0 -n elasticsearch --ignore-not-found
 ```
 
 ## 16. Common recovery commands
@@ -1064,5 +1147,6 @@ role: ADMIN
 | Sampledata GET 500 | Endpoint is POST-only | Use `POST` with JSON body |
 | Media image 401 on `curl -I` | `HEAD` not public-permitted | Test with GET |
 | Media image 500 | DB has image path but pod lacks files | Copy `sampledata/images` into `/images` or mount durable storage |
-| Kafka CRD/version errors | Strimzi/YAS chart/K8s version mismatch | Skip Kafka/Search in first pass |
-
+| Kafka CRD/version errors | Strimzi/YAS chart/K8s version mismatch | Use Strimzi `0.47.0` with the KRaft chart in this repo |
+| KafkaConnector missing `PostgresConnector` | Kafka Connect image lacks Debezium plugin | Build/push `k8s/deploy/kafka/debezium-connect/Dockerfile` |
+| Search crashes on Elasticsearch 400 | Elasticsearch version does not match search client | Use Elasticsearch `9.2.3`; delete old dev PVC if it was created by `8.x` |
