@@ -1,0 +1,17 @@
+image:
+  repository: swaggerapi/swagger-ui
+  tag: v4.16.0
+
+service:
+  type: ClusterIP
+
+ingress:
+  enabled: false
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
