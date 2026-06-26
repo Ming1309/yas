@@ -135,7 +135,6 @@ jobs:
   Build:
     needs: Test
     runs-on: ubuntu-latest
-    if: ${{ github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch' }}
     permissions:
       contents: read
       packages: write
