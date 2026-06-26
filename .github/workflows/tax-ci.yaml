@@ -10,9 +10,6 @@ on:
       - ".github/workflows/actions/action.yaml"
       - ".github/workflows/tax-ci.yaml"
       - "pom.xml"
-    paths-ignore:
-      - "k8s/**"
-      - "manifests/**"
 
   pull_request:
     branches: ["**"]

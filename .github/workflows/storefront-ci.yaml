@@ -9,9 +9,6 @@ on:
       - "storefront/**"
       - ".github/workflows/actions/action.yaml"
       - ".github/workflows/storefront-ci.yaml"
-    paths-ignore:
-      - "k8s/**"
-      - "manifests/**"
 
   pull_request:
     branches: ["**"]
