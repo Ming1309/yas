@@ -1,0 +1,16 @@
+ui:
+  image:
+    repository: docker.io/mingpham/yas-storefront
+    tag: main
+
+  service:
+    type: NodePort
+    nodePort: 30080
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
