@@ -131,6 +131,7 @@ jobs:
   Build:
     needs: Test
     runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'push' }}
     permissions:
       contents: read
       packages: write

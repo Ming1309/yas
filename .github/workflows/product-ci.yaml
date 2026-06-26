@@ -127,6 +127,7 @@ jobs:
   Build:
     needs: Test
     runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'push' }}
     permissions:
       contents: read
     steps:
@@ -144,7 +145,7 @@ jobs:
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
-      
+
       - name: Extract Docker metadata
         id: meta
         uses: docker/metadata-action@v5
@@ -160,5 +161,5 @@ jobs:
         with:
           context: ./product
           push: true
-          tags: ${{ steps.meta.outputs.tags }} 
+          tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}

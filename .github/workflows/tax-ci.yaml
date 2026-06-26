@@ -132,6 +132,7 @@ jobs:
   Build:
     needs: Test
     runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'push' }}
     permissions:
       contents: read
       packages: write
@@ -166,5 +167,5 @@ jobs:
         with:
           context: ./tax
           push: true
-          tags: ${{ steps.meta.outputs.tags }} 
+          tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
