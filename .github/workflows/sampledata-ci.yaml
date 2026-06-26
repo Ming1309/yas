@@ -3,11 +3,14 @@ name: sampledata service ci
 on:
   push:
     branches: ["**"]
+    tags:
+      - "v*"
     paths:
       - "sampledata/**"
       - ".github/workflows/actions/action.yaml"
       - ".github/workflows/sampledata-ci.yaml"
       - "pom.xml"
+
   pull_request:
     branches: ["**"]
     paths:
@@ -26,6 +29,7 @@ jobs:
     permissions:
       contents: read
       checks: write
+      pull-requests: write
     env:
       FROM_ORIGINAL_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name == github.repository || github.ref == 'refs/heads/main' }}
     steps:
@@ -37,11 +41,15 @@ jobs:
       - name: Setup JDK environment
         uses: ./.github/workflows/actions
 
-      - name: Run Maven Tests and Build
-        run: mvn clean install -pl sampledata -am
+      - name: Install dependencies (skip common-library tests)
+        run: mvn install -pl sampledata -am -DskipTests -Djacoco.skip=true --batch-mode --no-transfer-progress
+
+      - name: Run Maven Tests
+        run: mvn test -f sampledata --batch-mode --no-transfer-progress
+
       - name: Run Maven Checkstyle
         if: ${{ env.FROM_ORIGINAL_REPOSITORY == 'true' }}
-        run: mvn checkstyle:checkstyle -pl sampledata -am -Dcheckstyle.output.file=sampledata-checkstyle-result.xml
+        run: mvn checkstyle:checkstyle -f sampledata -Dcheckstyle.output.file=sampledata-checkstyle-result.xml --batch-mode --no-transfer-progress
       - name: Upload Checkstyle Result
         if: ${{ env.FROM_ORIGINAL_REPOSITORY == 'true' }}
         uses: jwgmeligmeyling/checkstyle-github-action@master
@@ -70,7 +78,7 @@ jobs:
         if: ${{ env.FROM_ORIGINAL_REPOSITORY == 'true' }}
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-        run: mvn org.sonarsource.scanner.maven:sonar-maven-plugin:sonar -f sampledata
+        run: mvn org.sonarsource.scanner.maven:sonar-maven-plugin:sonar -f sampledata --batch-mode --no-transfer-progress
       - name: OWASP Dependency Check
         if: ${{ env.FROM_ORIGINAL_REPOSITORY == 'true' }}
         uses: dependency-check/Dependency-Check_Action@main
@@ -114,13 +122,16 @@ jobs:
           if-no-files-found: warn
           retention-days: 14
 
+      - name: Enforce JaCoCo Coverage Threshold
+        run: mvn jacoco:check@check -f sampledata --batch-mode --no-transfer-progress
+
   # ============================================================================
   # PHASE 2: BUILD - Build Docker image and push to registry
   # ============================================================================
   Build:
     needs: Test
     runs-on: ubuntu-latest
-    if: ${{ github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch' }}
+    if: ${{ github.event_name == 'push' }}
     permissions:
       contents: read
       packages: write
@@ -134,19 +145,26 @@ jobs:
       - name: Build application (generate /target)
         run: mvn clean package -pl sampledata -am -DskipTests
 
-      - name: Set lowercase image owner
-        run: echo "IMAGE_OWNER=${GITHUB_REPOSITORY_OWNER,,}" >> $GITHUB_ENV
-
-      - name: Log in to the Container registry
+      - name: Login to Docker Hub
         uses: docker/login-action@v3
         with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Extract Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: docker.io/mingpham/yas-sampledata
+          tags: |
+            type=sha,format=short,prefix=
+            type=raw,value=main,enable=${{ github.ref == 'refs/heads/main' }}
+            type=ref,event=tag
 
       - name: Build and push Docker images
         uses: docker/build-push-action@v6
         with:
           context: ./sampledata
           push: true
-          tags: ghcr.io/${{ env.IMAGE_OWNER }}/yas-sampledata:latest
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
