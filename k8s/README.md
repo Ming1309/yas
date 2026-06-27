@@ -39,7 +39,7 @@ services are healthy, but this guide now includes the working Kafka/Search path.
 ### Use domain names, not the raw VM IP
 
 The GCP VM external IP changes when the VM is recreated or restarted without a
-static IP. Do not store raw IPs in Keycloak redirect URIs.
+static IP. Do not store raw IPs in Keycloak redirect URIs or media public URLs.
 
 Use these local domains instead:
 
@@ -49,7 +49,17 @@ storefront.yas.local.com
 backoffice.yas.local.com
 ```
 
-Whenever the VM IP changes, update only your local machine `/etc/hosts`.
+Recommended: reserve a static external IP for the VM, then map these local
+domains to that static IP once.
+
+```bash
+gcloud compute addresses create yas-minikube-ip \
+  --region=asia-southeast1 \
+  --project=yas-k8s
+```
+
+If you keep using an ephemeral IP, whenever the VM IP changes, update only your
+local machine `/etc/hosts`. You do not need to change Helm values.
 
 Example on your Mac:
 
@@ -422,9 +432,13 @@ helm dependency build k8s/charts/yas-configuration
 
 helm upgrade --install yas-configuration k8s/charts/yas-configuration \
   -n yas-dev \
-  --create-namespace \
-  --set mediaApplicationConfig.yas.publicUrl=http://storefront.yas.local.com:30081/api/media
+  --create-namespace
 ```
+
+The default media public URL is
+`http://storefront.yas.local.com:30081/api/media`. Keep this domain-based value
+instead of a raw VM IP so media metadata does not become stale when the VM IP
+changes.
 
 Verify that gateway routes use the Spring Boot 4 / Spring Cloud Gateway WebFlux
 property path:
@@ -811,18 +825,22 @@ Content-Type: image/jpeg
 
 ### Error avoided: images do not load although media service is running
 
-Cause 1: `mediaApplicationConfig.yas.publicUrl` defaults to:
+Cause 1: `mediaApplicationConfig.yas.publicUrl` points to a stale raw IP or to
+the old default:
 
 ```txt
 http://api.yas.local.com/media
 ```
 
-That domain is not exposed in this NodePort setup.
+That domain is not exposed in this NodePort setup, and raw IPs become stale when
+the VM IP changes.
 
-Fix: install `yas-configuration` with:
+Fix: keep the repo default:
 
-```bash
---set mediaApplicationConfig.yas.publicUrl=http://storefront.yas.local.com:30081/api/media
+```yaml
+mediaApplicationConfig:
+  yas:
+    publicUrl: http://storefront.yas.local.com:30081/api/media
 ```
 
 Cause 2: sampledata inserts DB rows, but the actual image files are not present
