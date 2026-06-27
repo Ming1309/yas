@@ -90,26 +90,26 @@ ping identity.yas.local.com
 
 ### Correct public entrypoints
 
-YAS uses the BFF pattern. The UI ports are only useful for debugging the UI
-container.
+YAS uses the BFF pattern. In this NodePort setup, browser page navigation goes
+to the UI service, while API and OAuth callback traffic goes to the BFF service.
 
 Use these URLs for real browser testing:
 
 ```txt
-Storefront: http://storefront.yas.local.com:30081
-Backoffice: http://backoffice.yas.local.com:30087
+Storefront UI: http://storefront.yas.local.com:30080
+Backoffice UI: http://backoffice.yas.local.com:30086
 Keycloak:   http://identity.yas.local.com
 ```
 
-Debug-only UI ports:
+BFF/API ports:
 
 ```txt
-storefront-ui:  http://storefront.yas.local.com:30080
-backoffice-ui:  http://backoffice.yas.local.com:30086
+storefront-bff: http://storefront.yas.local.com:30081
+backoffice-bff: http://backoffice.yas.local.com:30087
 ```
 
-If you open `30080` or `30086`, API calls such as `/api/product/...` will hit
-the UI service and return HTML/404. Use `30081` and `30087` for the full flow.
+Open product pages such as `/products/iphone-15` on `30080`, not `30081`.
+Use `30081` for `/api/...`, OAuth authorization, and login callback routes.
 
 ## 1. Create GCP VM
 
@@ -627,6 +627,18 @@ helm upgrade --install backoffice-ui k8s/charts/backoffice-ui \
   -f k8s/environments/dev/backoffice-ui.values.yaml
 ```
 
+The storefront UI uses server-side rendering for product detail pages such as
+`/products/iphone-15`. During SSR, the request is made from inside the
+`storefront-ui` pod, so `API_BASE_PATH` must use the internal Kubernetes service:
+
+```txt
+API_BASE_PATH=http://storefront-bff/api
+```
+
+Do not set this value to `http://storefront.yas.local.com:30081/api` for the
+pod. That domain is for the browser and depends on host/network routing outside
+the cluster.
+
 Deploy Swagger UI:
 
 ```bash
@@ -691,8 +703,37 @@ Location: /oauth2/authorization/api-client
 Open in browser:
 
 ```txt
-http://storefront.yas.local.com:30081
+http://storefront.yas.local.com:30080
+http://backoffice.yas.local.com:30086
+```
+
+Use the BFF ports directly only for API/login checks:
+
+```txt
+http://storefront.yas.local.com:30081/api/product/storefront/categories
 http://backoffice.yas.local.com:30087
+```
+
+### Error avoided: product detail page returns `500`
+
+Symptom:
+
+```txt
+GET http://storefront.yas.local.com:30081/products/iphone-15 500
+```
+
+Causes:
+
+```txt
+1. Opening a UI page on the BFF/API port.
+2. `storefront-ui` SSR uses an external API_BASE_PATH instead of the internal service.
+```
+
+Fix:
+
+```txt
+Open UI pages on: http://storefront.yas.local.com:30080
+Keep API_BASE_PATH: http://storefront-bff/api
 ```
 
 ## 11. Create/login user for backoffice
@@ -1139,8 +1180,8 @@ curl -s -D - \
 Browser:
 
 ```txt
-http://storefront.yas.local.com:30081
-http://backoffice.yas.local.com:30087
+http://storefront.yas.local.com:30080
+http://backoffice.yas.local.com:30086
 ```
 
 Backoffice login user:
@@ -1160,7 +1201,9 @@ role: ADMIN
 | Browser `DNS_PROBE_FINISHED_NXDOMAIN` | Mac `/etc/hosts` missing | Add VM IP for `identity`, `storefront`, `backoffice` domains |
 | Keycloak `Invalid parameter: redirect_uri` | Raw IP callback not whitelisted | Use domain URLs in Keycloak redirect config |
 | Backoffice `Access Denied` | User lacks YAS realm role `ADMIN` | Assign realm role `ADMIN`, not `realm-management/realm-admin` only |
-| UI 404 / `Unexpected token '<'` | Browser opened UI port directly | Use BFF ports `30081` and `30087` |
+| UI 404 / `Unexpected token '<'` on API calls | Browser/API request hit the wrong port | UI pages use `30080`/`30086`; API/BFF uses `30081`/`30087` |
+| Product detail `500` | SSR in `storefront-ui` used an external `API_BASE_PATH`, or page was opened on BFF port | Open pages on `30080`; keep `API_BASE_PATH=http://storefront-bff/api` |
+| Checkout `500` after clicking Proceed to checkout | `order` deserialized the product checkout response with a narrower DTO and failed on extra fields | Keep the order-side product DTO tolerant with `@JsonIgnoreProperties(ignoreUnknown = true)` |
 | BFF route hits `nginx` | Old gateway config key | Use `spring.cloud.gateway.server.webflux.routes` |
 | BFF CrashLoop YAML parser | Inline `filters: [...]` with comma regex | Use block YAML list |
 | Sampledata GET 500 | Endpoint is POST-only | Use `POST` with JSON body |
