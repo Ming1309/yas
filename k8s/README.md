@@ -9,30 +9,45 @@ without repeating the same mistakes.
 
 ## Scope
 
-This guide deploys the useful demo path first:
+This guide deploys the 14 services kept for the project demo:
 
 - Postgres
 - Redis
 - Keycloak
 - `yas-configuration`
-- Core services:
-  - `product`
-  - `cart`
-  - `order`
-  - `customer`
-  - `inventory`
-  - `tax`
-  - `media`
-  - `sampledata`
-- BFF/UI:
-  - `storefront-bff`
-  - `storefront-ui`
-  - `backoffice-bff`
-  - `backoffice-ui`
+- `product`
+- `cart`
+- `order`
+- `customer`
+- `inventory`
+- `tax`
+- `media`
+- `search`
+- `storefront-bff`
+- `storefront-ui`
+- `backoffice-bff`
+- `backoffice-ui`
 - `swagger-ui`
+- `sampledata`
 
-Kafka, Elasticsearch, and `search` are still best deployed after the core
-services are healthy, but this guide now includes the working Kafka/Search path.
+`sampledata` is used to seed demo data. After the data exists, it can stay
+running or be scaled down.
+
+The checkout payment page can call services outside this 14-service scope:
+
+```txt
+payment
+payment-paypal
+location
+```
+
+If those services are not deployed, errors from `/api/payment/...` or
+`/api/location/...` are expected. The supported demo boundary for this scope is:
+product browsing, media images, search, cart, and creating an order checkout
+draft. Full payment completion is outside this trimmed deployment.
+
+Kafka, Elasticsearch, and `search` are best deployed after the core services are
+healthy, but this guide includes the working Kafka/Search path.
 
 ## Important Decisions
 
@@ -1177,6 +1192,38 @@ curl -s -D - \
   -o /tmp/iphone15_thumbnail.jpg
 ```
 
+Search:
+
+```bash
+curl -i "http://storefront.yas.local.com:30081/api/search/storefront/catalog-search?keyword=iphone&page=0"
+```
+
+Internal service health:
+
+```bash
+for svc in product cart order customer inventory media tax search storefront-bff backoffice-bff; do
+  kubectl run smoke-$svc -n yas-dev --rm -i --image=curlimages/curl --restart=Never -- \
+    curl -s -i http://$svc:8090/actuator/health
+done
+```
+
+Expected:
+
+```txt
+HTTP/1.1 200
+"status":"UP"
+```
+
+If the temporary `smoke-*` pods are kept as `Completed`, they are safe to
+delete:
+
+```bash
+kubectl delete pod -n yas-dev \
+  smoke-backoffice-bff smoke-cart smoke-customer smoke-inventory smoke-media \
+  smoke-order smoke-product smoke-search smoke-storefront-bff smoke-tax \
+  --ignore-not-found
+```
+
 Browser:
 
 ```txt
@@ -1204,6 +1251,7 @@ role: ADMIN
 | UI 404 / `Unexpected token '<'` on API calls | Browser/API request hit the wrong port | UI pages use `30080`/`30086`; API/BFF uses `30081`/`30087` |
 | Product detail `500` | SSR in `storefront-ui` used an external `API_BASE_PATH`, or page was opened on BFF port | Open pages on `30080`; keep `API_BASE_PATH=http://storefront-bff/api` |
 | Checkout `500` after clicking Proceed to checkout | `order` deserialized the product checkout response with a DTO that Jackson could not instantiate or that was narrower than the product response | Keep the order-side product DTO deserializable with no/all-args constructors and tolerant with `@JsonIgnoreProperties(ignoreUnknown = true)` |
+| Checkout page errors on `/api/payment/...` or `/api/location/...` | `payment`, `payment-paypal`, and `location` are outside the trimmed 14-service deployment | Do not use full payment completion as the acceptance test unless those services are deployed |
 | BFF route hits `nginx` | Old gateway config key | Use `spring.cloud.gateway.server.webflux.routes` |
 | BFF CrashLoop YAML parser | Inline `filters: [...]` with comma regex | Use block YAML list |
 | Sampledata GET 500 | Endpoint is POST-only | Use `POST` with JSON body |
