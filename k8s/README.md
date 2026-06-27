@@ -531,25 +531,22 @@ java.net.UnknownHostException: identity.yas.local.com
 
 Fix: CoreDNS rewrite above.
 
-## 9. Deploy app services with public GHCR images
+## 9. Deploy app services from Docker Hub
 
-The environment values in this repo may point to Docker Hub images such as
-`docker.io/mingpham/yas-product`. For isolated testing before pushing your own
-images, override to public GHCR images.
+The environment values in this repo point to Docker Hub images published by the
+main CI/CD pipeline, for example `docker.io/mingpham/yas-product:main`.
+
+Use the values files as the source of truth. Do not override to public GHCR
+images unless you are doing an isolated fallback test.
 
 Deploy core backend services:
 
 ```bash
-TAG=latest
-
 for svc in product cart order customer inventory media tax; do
   helm dependency build k8s/charts/$svc || true
   helm upgrade --install $svc k8s/charts/$svc \
     -n yas-dev \
-    -f k8s/environments/dev/$svc.values.yaml \
-    --set backend.image.repository=ghcr.io/nashtech-garage/yas-$svc \
-    --set backend.image.tag=$TAG \
-    --set backend.serviceMonitor.enabled=false
+    -f k8s/environments/dev/$svc.values.yaml
 done
 ```
 
@@ -561,10 +558,7 @@ helm dependency build k8s/charts/sampledata || true
 helm upgrade --install sampledata k8s/charts/sampledata \
   -n yas-dev \
   -f k8s/environments/dev/sampledata.values.yaml \
-  --set backend.image.repository=ghcr.io/nashtech-garage/yas-sampledata \
-  --set backend.image.tag=latest \
-  --set backend.replicaCount=1 \
-  --set backend.serviceMonitor.enabled=false
+  --set backend.replicaCount=1
 ```
 
 Deploy BFFs:
@@ -575,21 +569,11 @@ helm dependency build k8s/charts/backoffice-bff || true
 
 helm upgrade --install storefront-bff k8s/charts/storefront-bff \
   -n yas-dev \
-  --set backend.image.repository=ghcr.io/nashtech-garage/yas-storefront-bff \
-  --set backend.image.tag=latest \
-  --set backend.service.type=NodePort \
-  --set backend.service.nodePort=30081 \
-  --set backend.ingress.enabled=false \
-  --set backend.serviceMonitor.enabled=false
+  -f k8s/environments/dev/storefront-bff.values.yaml
 
 helm upgrade --install backoffice-bff k8s/charts/backoffice-bff \
   -n yas-dev \
-  --set backend.image.repository=ghcr.io/nashtech-garage/yas-backoffice-bff \
-  --set backend.image.tag=latest \
-  --set backend.service.type=NodePort \
-  --set backend.service.nodePort=30087 \
-  --set backend.ingress.enabled=false \
-  --set backend.serviceMonitor.enabled=false
+  -f k8s/environments/dev/backoffice-bff.values.yaml
 ```
 
 Deploy UIs:
@@ -600,21 +584,11 @@ helm dependency build k8s/charts/backoffice-ui || true
 
 helm upgrade --install storefront-ui k8s/charts/storefront-ui \
   -n yas-dev \
-  -f k8s/environments/dev/storefront-ui.values.yaml \
-  --set ui.image.repository=ghcr.io/nashtech-garage/yas-storefront \
-  --set ui.image.tag=latest \
-  --set ui.service.type=NodePort \
-  --set ui.service.nodePort=30080 \
-  --set ui.ingress.enabled=false
+  -f k8s/environments/dev/storefront-ui.values.yaml
 
 helm upgrade --install backoffice-ui k8s/charts/backoffice-ui \
   -n yas-dev \
-  -f k8s/environments/dev/backoffice-ui.values.yaml \
-  --set ui.image.repository=ghcr.io/nashtech-garage/yas-backoffice \
-  --set ui.image.tag=latest \
-  --set ui.service.type=NodePort \
-  --set ui.service.nodePort=30086 \
-  --set ui.ingress.enabled=false
+  -f k8s/environments/dev/backoffice-ui.values.yaml
 ```
 
 Deploy Swagger UI:
@@ -636,13 +610,15 @@ kubectl get deploy -n yas-dev -o custom-columns=NAME:.metadata.name,IMAGE:.spec.
 
 ### Error avoided: `ErrImagePull`
 
-Cause: values pointed to images that were not pushed yet, for example:
+Cause: the CI/CD pipeline has not pushed the expected Docker Hub image/tag yet,
+for example:
 
 ```txt
 docker.io/mingpham/yas-product:main
 ```
 
-Fix: use public GHCR images while testing:
+Fix: wait for the pipeline to publish the image, or temporarily override to a
+known public image only for local testing:
 
 ```txt
 ghcr.io/nashtech-garage/yas-product:latest
@@ -982,9 +958,7 @@ helm dependency build k8s/charts/search
 
 helm upgrade --install search k8s/charts/search \
   -n yas-dev \
-  -f k8s/environments/dev/search.values.yaml \
-  --set backend.image.repository=ghcr.io/nashtech-garage/yas-search \
-  --set backend.image.tag=latest
+  -f k8s/environments/dev/search.values.yaml
 
 kubectl get pods -n yas-dev | grep search
 ```
@@ -1136,7 +1110,7 @@ role: ADMIN
 
 | Problem | Root cause | Fix |
 | --- | --- | --- |
-| `ErrImagePull` | Values pointed to Docker Hub images not pushed yet | Override images to `ghcr.io/nashtech-garage/yas-*` |
+| `ErrImagePull` | CI/CD has not pushed the expected Docker Hub image/tag yet | Wait for CI/CD or temporarily override to a known public image for local testing |
 | BFF `UnknownHostException identity.yas.local.com` | Pod DNS could not resolve Keycloak domain | CoreDNS rewrite to `keycloak-service.keycloak.svc.cluster.local` |
 | Browser `DNS_PROBE_FINISHED_NXDOMAIN` | Mac `/etc/hosts` missing | Add VM IP for `identity`, `storefront`, `backoffice` domains |
 | Keycloak `Invalid parameter: redirect_uri` | Raw IP callback not whitelisted | Use domain URLs in Keycloak redirect config |

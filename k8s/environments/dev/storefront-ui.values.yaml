@@ -1,6 +1,6 @@
 ui:
   image:
-    repository: docker.io/mingpham/yas-storefront
+    repository: docker.io/mingpham/yas-storefront-ui
     tag: main
 
   service:
