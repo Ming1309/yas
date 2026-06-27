@@ -1203,7 +1203,7 @@ role: ADMIN
 | Backoffice `Access Denied` | User lacks YAS realm role `ADMIN` | Assign realm role `ADMIN`, not `realm-management/realm-admin` only |
 | UI 404 / `Unexpected token '<'` on API calls | Browser/API request hit the wrong port | UI pages use `30080`/`30086`; API/BFF uses `30081`/`30087` |
 | Product detail `500` | SSR in `storefront-ui` used an external `API_BASE_PATH`, or page was opened on BFF port | Open pages on `30080`; keep `API_BASE_PATH=http://storefront-bff/api` |
-| Checkout `500` after clicking Proceed to checkout | `order` deserialized the product checkout response with a narrower DTO and failed on extra fields | Keep the order-side product DTO tolerant with `@JsonIgnoreProperties(ignoreUnknown = true)` |
+| Checkout `500` after clicking Proceed to checkout | `order` deserialized the product checkout response with a DTO that Jackson could not instantiate or that was narrower than the product response | Keep the order-side product DTO deserializable with no/all-args constructors and tolerant with `@JsonIgnoreProperties(ignoreUnknown = true)` |
 | BFF route hits `nginx` | Old gateway config key | Use `spring.cloud.gateway.server.webflux.routes` |
 | BFF CrashLoop YAML parser | Inline `filters: [...]` with comma regex | Use block YAML list |
 | Sampledata GET 500 | Endpoint is POST-only | Use `POST` with JSON body |
