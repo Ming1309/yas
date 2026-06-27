@@ -416,6 +416,28 @@ http://storefront.yas.local.com:30081/*
 
 The install command above sets these redirect URLs.
 
+### Error avoided: Keycloak `Invalid parameter: redirect_uri`
+
+Cause: Spring Security generates OAuth2 redirect URIs from the request host
+unless the registration has an explicit `redirect-uri`. In this NodePort setup,
+that can accidentally become a raw VM IP such as:
+
+```txt
+http://34.x.x.x:30081/login/oauth2/code/keycloak
+```
+
+Fix: `yas-configuration` pins the BFF redirect URIs to local domains:
+
+```yaml
+storefront-bff:
+  redirect-uri: http://storefront.yas.local.com:30081/login/oauth2/code/keycloak
+backoffice-bff:
+  redirect-uri: http://backoffice.yas.local.com:30087/login/oauth2/code/api-client
+```
+
+After updating the chart, upgrade `yas-configuration` and restart the BFF pods.
+Also open the UI by domain, not by raw IP.
+
 ## 7. Install yas-configuration
 
 Add Stakater Helm repo:
