@@ -221,6 +221,7 @@ backofficeBffExtraConfig:
               provider: keycloak
               client-id: backoffice-bff
               client-secret: ${KEYCLOAK_BACKOFFICE_BFF_CLIENT_SECRET}
+              redirect-uri: http://backoffice.yas.local.com:30087/login/oauth2/code/api-client
               scope: openid, profile, email, roles
 
 storefrontBffExtraConfig:
@@ -237,10 +238,11 @@ storefrontBffExtraConfig:
             keycloak:
               issuer-uri: http://identity.yas.local.com/realms/Yas
           registration:
-            api-client:
+            keycloak:
               provider: keycloak
               client-id: storefront-bff
               client-secret: ${KEYCLOAK_STOREFRONT_BFF_CLIENT_SECRET}
+              redirect-uri: http://storefront.yas.local.com:30081/login/oauth2/code/keycloak
               scope: openid, profile, email, roles
 
 # Media application config custom
@@ -249,7 +251,7 @@ mediaApplicationConfig:
     servlet:
       context-path: /media
   yas:
-    publicUrl: http://api.yas.local.com/media
+    publicUrl: http://storefront.yas.local.com:30081/api/media
 
 # Customer application config custom
 customerApplicationConfig:

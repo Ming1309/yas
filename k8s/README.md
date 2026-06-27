@@ -9,37 +9,52 @@ without repeating the same mistakes.
 
 ## Scope
 
-This guide deploys the useful demo path first:
+This guide deploys the 14 services kept for the project demo:
 
 - Postgres
 - Redis
 - Keycloak
 - `yas-configuration`
-- Core services:
-  - `product`
-  - `cart`
-  - `order`
-  - `customer`
-  - `inventory`
-  - `tax`
-  - `media`
-  - `sampledata`
-- BFF/UI:
-  - `storefront-bff`
-  - `storefront-ui`
-  - `backoffice-bff`
-  - `backoffice-ui`
+- `product`
+- `cart`
+- `order`
+- `customer`
+- `inventory`
+- `tax`
+- `media`
+- `search`
+- `storefront-bff`
+- `storefront-ui`
+- `backoffice-bff`
+- `backoffice-ui`
 - `swagger-ui`
+- `sampledata`
 
-Kafka, Elasticsearch, and `search` are still best deployed after the core
-services are healthy, but this guide now includes the working Kafka/Search path.
+`sampledata` is used to seed demo data. After the data exists, it can stay
+running or be scaled down.
+
+The checkout payment page can call services outside this 14-service scope:
+
+```txt
+payment
+payment-paypal
+location
+```
+
+If those services are not deployed, errors from `/api/payment/...` or
+`/api/location/...` are expected. The supported demo boundary for this scope is:
+product browsing, media images, search, cart, and creating an order checkout
+draft. Full payment completion is outside this trimmed deployment.
+
+Kafka, Elasticsearch, and `search` are best deployed after the core services are
+healthy, but this guide includes the working Kafka/Search path.
 
 ## Important Decisions
 
 ### Use domain names, not the raw VM IP
 
 The GCP VM external IP changes when the VM is recreated or restarted without a
-static IP. Do not store raw IPs in Keycloak redirect URIs.
+static IP. Do not store raw IPs in Keycloak redirect URIs or media public URLs.
 
 Use these local domains instead:
 
@@ -49,7 +64,17 @@ storefront.yas.local.com
 backoffice.yas.local.com
 ```
 
-Whenever the VM IP changes, update only your local machine `/etc/hosts`.
+Recommended: reserve a static external IP for the VM, then map these local
+domains to that static IP once.
+
+```bash
+gcloud compute addresses create yas-minikube-ip \
+  --region=asia-southeast1 \
+  --project=yas-k8s
+```
+
+If you keep using an ephemeral IP, whenever the VM IP changes, update only your
+local machine `/etc/hosts`. You do not need to change Helm values.
 
 Example on your Mac:
 
@@ -80,26 +105,26 @@ ping identity.yas.local.com
 
 ### Correct public entrypoints
 
-YAS uses the BFF pattern. The UI ports are only useful for debugging the UI
-container.
+YAS uses the BFF pattern. In this NodePort setup, browser page navigation goes
+to the UI service, while API and OAuth callback traffic goes to the BFF service.
 
 Use these URLs for real browser testing:
 
 ```txt
-Storefront: http://storefront.yas.local.com:30081
-Backoffice: http://backoffice.yas.local.com:30087
+Storefront UI: http://storefront.yas.local.com:30080
+Backoffice UI: http://backoffice.yas.local.com:30086
 Keycloak:   http://identity.yas.local.com
 ```
 
-Debug-only UI ports:
+BFF/API ports:
 
 ```txt
-storefront-ui:  http://storefront.yas.local.com:30080
-backoffice-ui:  http://backoffice.yas.local.com:30086
+storefront-bff: http://storefront.yas.local.com:30081
+backoffice-bff: http://backoffice.yas.local.com:30087
 ```
 
-If you open `30080` or `30086`, API calls such as `/api/product/...` will hit
-the UI service and return HTML/404. Use `30081` and `30087` for the full flow.
+Open product pages such as `/products/iphone-15` on `30080`, not `30081`.
+Use `30081` for `/api/...`, OAuth authorization, and login callback routes.
 
 ## 1. Create GCP VM
 
@@ -406,6 +431,28 @@ http://storefront.yas.local.com:30081/*
 
 The install command above sets these redirect URLs.
 
+### Error avoided: Keycloak `Invalid parameter: redirect_uri`
+
+Cause: Spring Security generates OAuth2 redirect URIs from the request host
+unless the registration has an explicit `redirect-uri`. In this NodePort setup,
+that can accidentally become a raw VM IP such as:
+
+```txt
+http://34.x.x.x:30081/login/oauth2/code/keycloak
+```
+
+Fix: `yas-configuration` pins the BFF redirect URIs to local domains:
+
+```yaml
+storefront-bff:
+  redirect-uri: http://storefront.yas.local.com:30081/login/oauth2/code/keycloak
+backoffice-bff:
+  redirect-uri: http://backoffice.yas.local.com:30087/login/oauth2/code/api-client
+```
+
+After updating the chart, upgrade `yas-configuration` and restart the BFF pods.
+Also open the UI by domain, not by raw IP.
+
 ## 7. Install yas-configuration
 
 Add Stakater Helm repo:
@@ -422,9 +469,13 @@ helm dependency build k8s/charts/yas-configuration
 
 helm upgrade --install yas-configuration k8s/charts/yas-configuration \
   -n yas-dev \
-  --create-namespace \
-  --set mediaApplicationConfig.yas.publicUrl=http://storefront.yas.local.com:30081/api/media
+  --create-namespace
 ```
+
+The default media public URL is
+`http://storefront.yas.local.com:30081/api/media`. Keep this domain-based value
+instead of a raw VM IP so media metadata does not become stale when the VM IP
+changes.
 
 Verify that gateway routes use the Spring Boot 4 / Spring Cloud Gateway WebFlux
 property path:
@@ -591,6 +642,18 @@ helm upgrade --install backoffice-ui k8s/charts/backoffice-ui \
   -f k8s/environments/dev/backoffice-ui.values.yaml
 ```
 
+The storefront UI uses server-side rendering for product detail pages such as
+`/products/iphone-15`. During SSR, the request is made from inside the
+`storefront-ui` pod, so `API_BASE_PATH` must use the internal Kubernetes service:
+
+```txt
+API_BASE_PATH=http://storefront-bff/api
+```
+
+Do not set this value to `http://storefront.yas.local.com:30081/api` for the
+pod. That domain is for the browser and depends on host/network routing outside
+the cluster.
+
 Deploy Swagger UI:
 
 ```bash
@@ -655,8 +718,37 @@ Location: /oauth2/authorization/api-client
 Open in browser:
 
 ```txt
-http://storefront.yas.local.com:30081
+http://storefront.yas.local.com:30080
+http://backoffice.yas.local.com:30086
+```
+
+Use the BFF ports directly only for API/login checks:
+
+```txt
+http://storefront.yas.local.com:30081/api/product/storefront/categories
 http://backoffice.yas.local.com:30087
+```
+
+### Error avoided: product detail page returns `500`
+
+Symptom:
+
+```txt
+GET http://storefront.yas.local.com:30081/products/iphone-15 500
+```
+
+Causes:
+
+```txt
+1. Opening a UI page on the BFF/API port.
+2. `storefront-ui` SSR uses an external API_BASE_PATH instead of the internal service.
+```
+
+Fix:
+
+```txt
+Open UI pages on: http://storefront.yas.local.com:30080
+Keep API_BASE_PATH: http://storefront-bff/api
 ```
 
 ## 11. Create/login user for backoffice
@@ -773,8 +865,12 @@ Sampledata inserts media database records with paths such as:
 /images/sample/product/ip15/iphone15_thumbnail.jpg
 ```
 
-The image files must also exist inside the `media` pod. For a quick demo,
-copy them from the repo into the running pod:
+The image files must also exist under `/images`. The `media` chart creates a
+PVC named `media-images-pvc` and mounts it at `/images`, so files copied there
+survive `media` pod restarts.
+
+After installing/upgrading `media`, copy the sample images into the PVC through
+the running pod:
 
 ```bash
 MEDIA_POD=$(kubectl get pod -n yas-dev -l app.kubernetes.io/instance=media -o jsonpath='{.items[0].metadata.name}')
@@ -807,33 +903,38 @@ Content-Type: image/jpeg
 
 ### Error avoided: images do not load although media service is running
 
-Cause 1: `mediaApplicationConfig.yas.publicUrl` defaults to:
+Cause 1: `mediaApplicationConfig.yas.publicUrl` points to a stale raw IP or to
+the old default:
 
 ```txt
 http://api.yas.local.com/media
 ```
 
-That domain is not exposed in this NodePort setup.
+That domain is not exposed in this NodePort setup, and raw IPs become stale when
+the VM IP changes.
 
-Fix: install `yas-configuration` with:
+Fix: keep the repo default:
 
-```bash
---set mediaApplicationConfig.yas.publicUrl=http://storefront.yas.local.com:30081/api/media
+```yaml
+mediaApplicationConfig:
+  yas:
+    publicUrl: http://storefront.yas.local.com:30081/api/media
 ```
 
-Cause 2: sampledata inserts DB rows, but the actual image files are not mounted
-inside the media pod.
+Cause 2: sampledata inserts DB rows, but the actual image files are not present
+in the `/images` PVC used by the media pod.
 
-Fix for demo: `kubectl cp sampledata/images/. ...:/images/`.
+Fix: copy `sampledata/images/.` into `/images` once after creating the PVC.
 
 Cause 3: testing with `curl -I` sends `HEAD`, while media permits public `GET`
 for `/medias/**`.
 
 Fix: use `curl -s -D - URL -o file`.
 
-Note: `kubectl cp` is a temporary demo fix. If the media pod restarts, copied
-files disappear. For a durable setup, use a PVC/initContainer or build the
-sample assets into an image.
+Note: the files survive pod restarts because `/images` is backed by
+`media-images-pvc`. If the PVC is deleted, copy the images again. A future fully
+automated option is adding a Job/initContainer with an image that contains the
+sample assets.
 
 ## 14. ArgoCD
 
@@ -1091,11 +1192,43 @@ curl -s -D - \
   -o /tmp/iphone15_thumbnail.jpg
 ```
 
+Search:
+
+```bash
+curl -i "http://storefront.yas.local.com:30081/api/search/storefront/catalog-search?keyword=iphone&page=0"
+```
+
+Internal service health:
+
+```bash
+for svc in product cart order customer inventory media tax search storefront-bff backoffice-bff; do
+  kubectl run smoke-$svc -n yas-dev --rm -i --image=curlimages/curl --restart=Never -- \
+    curl -s -i http://$svc:8090/actuator/health
+done
+```
+
+Expected:
+
+```txt
+HTTP/1.1 200
+"status":"UP"
+```
+
+If the temporary `smoke-*` pods are kept as `Completed`, they are safe to
+delete:
+
+```bash
+kubectl delete pod -n yas-dev \
+  smoke-backoffice-bff smoke-cart smoke-customer smoke-inventory smoke-media \
+  smoke-order smoke-product smoke-search smoke-storefront-bff smoke-tax \
+  --ignore-not-found
+```
+
 Browser:
 
 ```txt
-http://storefront.yas.local.com:30081
-http://backoffice.yas.local.com:30087
+http://storefront.yas.local.com:30080
+http://backoffice.yas.local.com:30086
 ```
 
 Backoffice login user:
@@ -1115,7 +1248,10 @@ role: ADMIN
 | Browser `DNS_PROBE_FINISHED_NXDOMAIN` | Mac `/etc/hosts` missing | Add VM IP for `identity`, `storefront`, `backoffice` domains |
 | Keycloak `Invalid parameter: redirect_uri` | Raw IP callback not whitelisted | Use domain URLs in Keycloak redirect config |
 | Backoffice `Access Denied` | User lacks YAS realm role `ADMIN` | Assign realm role `ADMIN`, not `realm-management/realm-admin` only |
-| UI 404 / `Unexpected token '<'` | Browser opened UI port directly | Use BFF ports `30081` and `30087` |
+| UI 404 / `Unexpected token '<'` on API calls | Browser/API request hit the wrong port | UI pages use `30080`/`30086`; API/BFF uses `30081`/`30087` |
+| Product detail `500` | SSR in `storefront-ui` used an external `API_BASE_PATH`, or page was opened on BFF port | Open pages on `30080`; keep `API_BASE_PATH=http://storefront-bff/api` |
+| Checkout `500` after clicking Proceed to checkout | `order` deserialized the product checkout response with a DTO that Jackson could not instantiate or that was narrower than the product response | Keep the order-side product DTO deserializable with no/all-args constructors and tolerant with `@JsonIgnoreProperties(ignoreUnknown = true)` |
+| Checkout page errors on `/api/payment/...` or `/api/location/...` | `payment`, `payment-paypal`, and `location` are outside the trimmed 14-service deployment | Do not use full payment completion as the acceptance test unless those services are deployed |
 | BFF route hits `nginx` | Old gateway config key | Use `spring.cloud.gateway.server.webflux.routes` |
 | BFF CrashLoop YAML parser | Inline `filters: [...]` with comma regex | Use block YAML list |
 | Sampledata GET 500 | Endpoint is POST-only | Use `POST` with JSON body |
