@@ -773,8 +773,12 @@ Sampledata inserts media database records with paths such as:
 /images/sample/product/ip15/iphone15_thumbnail.jpg
 ```
 
-The image files must also exist inside the `media` pod. For a quick demo,
-copy them from the repo into the running pod:
+The image files must also exist under `/images`. The `media` chart creates a
+PVC named `media-images-pvc` and mounts it at `/images`, so files copied there
+survive `media` pod restarts.
+
+After installing/upgrading `media`, copy the sample images into the PVC through
+the running pod:
 
 ```bash
 MEDIA_POD=$(kubectl get pod -n yas-dev -l app.kubernetes.io/instance=media -o jsonpath='{.items[0].metadata.name}')
@@ -821,19 +825,20 @@ Fix: install `yas-configuration` with:
 --set mediaApplicationConfig.yas.publicUrl=http://storefront.yas.local.com:30081/api/media
 ```
 
-Cause 2: sampledata inserts DB rows, but the actual image files are not mounted
-inside the media pod.
+Cause 2: sampledata inserts DB rows, but the actual image files are not present
+in the `/images` PVC used by the media pod.
 
-Fix for demo: `kubectl cp sampledata/images/. ...:/images/`.
+Fix: copy `sampledata/images/.` into `/images` once after creating the PVC.
 
 Cause 3: testing with `curl -I` sends `HEAD`, while media permits public `GET`
 for `/medias/**`.
 
 Fix: use `curl -s -D - URL -o file`.
 
-Note: `kubectl cp` is a temporary demo fix. If the media pod restarts, copied
-files disappear. For a durable setup, use a PVC/initContainer or build the
-sample assets into an image.
+Note: the files survive pod restarts because `/images` is backed by
+`media-images-pvc`. If the PVC is deleted, copy the images again. A future fully
+automated option is adding a Job/initContainer with an image that contains the
+sample assets.
 
 ## 14. ArgoCD
 
