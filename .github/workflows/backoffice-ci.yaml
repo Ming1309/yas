@@ -105,7 +105,7 @@ jobs:
         with:
           images: docker.io/mingpham/yas-backoffice-ui
           tags: |
-            type=sha,format=short,prefix=
+            type=sha,format=long,prefix=
             type=raw,value=main,enable=${{ github.ref == 'refs/heads/main' }}
             type=ref,event=tag
 
