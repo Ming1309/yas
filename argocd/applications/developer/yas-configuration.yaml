@@ -1,0 +1,25 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: yas-developer-yas-configuration
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/Ming1309/yas.git
+    targetRevision: gitops-developer
+    path: k8s/charts/yas-configuration
+    helm:
+      valueFiles:
+        - ../../environments/developer/yas-configuration.values.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: yas-developer
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true

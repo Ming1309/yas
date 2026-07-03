@@ -1,0 +1,21 @@
+backofficeBffExtraConfig:
+  spring:
+    security:
+      oauth2:
+        client:
+          registration:
+            api-client:
+              redirect-uri: http://backoffice.yas.local.com:30087/login/oauth2/code/api-client
+
+storefrontBffExtraConfig:
+  spring:
+    security:
+      oauth2:
+        client:
+          registration:
+            keycloak:
+              redirect-uri: http://storefront.yas.local.com:30081/login/oauth2/code/keycloak
+
+mediaApplicationConfig:
+  yas:
+    publicUrl: http://storefront.yas.local.com:30081/api/media
