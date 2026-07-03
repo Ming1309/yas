@@ -979,6 +979,38 @@ Open:
 https://<VM_EXTERNAL_IP>:8080
 ```
 
+GitOps branch model for the CD workflows:
+
+```txt
+main                = code and yas-dev deploy state
+gitops-staging      = yas-staging deploy state
+gitops-developer    = yas-developer deploy state
+```
+
+Create `gitops-staging` and `gitops-developer` from `main` before using the
+staging/developer workflows. `yas-dev` reads `main`; `yas-staging` reads
+`gitops-staging`; `yas-developer` reads `gitops-developer`.
+
+The `gitops_dev_update` workflow updates dev values on protected `main`, so add
+a repository secret named `ADMIN_PAT`. Use a fine-grained PAT from a repository
+admin account with `Contents: Read and write`; the repository ruleset must allow
+`Repository admin` to bypass.
+
+Image tag policy:
+
+```txt
+yas-dev        uses short SHA tags so ArgoCD sees a manifest diff
+yas-staging    uses release tags such as v1.2.3
+yas-developer  uses main as baseline and branch short SHA for services under test
+```
+
+`developer_build` does not build images. It resolves branch inputs to image tags
+and updates `k8s/environments/developer/*.values.yaml` on `gitops-developer`.
+Run it only after the selected service branch CI has pushed the SHA image.
+
+`delete_developer_deploy` resets all developer service image tags back to
+`main`; it does not delete the `yas-developer` namespace or ArgoCD Applications.
+
 ## 15. Kafka, Elasticsearch, and Search
 
 Deploy Kafka/Search only after the core services are healthy. The original YAS

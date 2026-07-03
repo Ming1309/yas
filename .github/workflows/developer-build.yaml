@@ -1,0 +1,138 @@
+name: developer_build
+
+on:
+  workflow_dispatch:
+    inputs:
+      backoffice_bff_branch:
+        description: "Branch or short SHA for backoffice-bff"
+        required: false
+        default: "main"
+      backoffice_ui_branch:
+        description: "Branch or short SHA for backoffice-ui"
+        required: false
+        default: "main"
+      cart_branch:
+        description: "Branch or short SHA for cart"
+        required: false
+        default: "main"
+      customer_branch:
+        description: "Branch or short SHA for customer"
+        required: false
+        default: "main"
+      inventory_branch:
+        description: "Branch or short SHA for inventory"
+        required: false
+        default: "main"
+      media_branch:
+        description: "Branch or short SHA for media"
+        required: false
+        default: "main"
+      order_branch:
+        description: "Branch or short SHA for order"
+        required: false
+        default: "main"
+      product_branch:
+        description: "Branch or short SHA for product"
+        required: false
+        default: "main"
+      sampledata_branch:
+        description: "Branch or short SHA for sampledata"
+        required: false
+        default: "main"
+      search_branch:
+        description: "Branch or short SHA for search"
+        required: false
+        default: "main"
+      storefront_bff_branch:
+        description: "Branch or short SHA for storefront-bff"
+        required: false
+        default: "main"
+      storefront_ui_branch:
+        description: "Branch or short SHA for storefront-ui"
+        required: false
+        default: "main"
+      tax_branch:
+        description: "Branch or short SHA for tax"
+        required: false
+        default: "main"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: developer-build
+  cancel-in-progress: false
+
+jobs:
+  update-developer-manifests:
+    runs-on: ubuntu-latest
+    env:
+      BACKOFFICE_BFF_BRANCH: ${{ inputs.backoffice_bff_branch }}
+      BACKOFFICE_UI_BRANCH: ${{ inputs.backoffice_ui_branch }}
+      CART_BRANCH: ${{ inputs.cart_branch }}
+      CUSTOMER_BRANCH: ${{ inputs.customer_branch }}
+      INVENTORY_BRANCH: ${{ inputs.inventory_branch }}
+      MEDIA_BRANCH: ${{ inputs.media_branch }}
+      ORDER_BRANCH: ${{ inputs.order_branch }}
+      PRODUCT_BRANCH: ${{ inputs.product_branch }}
+      SAMPLEDATA_BRANCH: ${{ inputs.sampledata_branch }}
+      SEARCH_BRANCH: ${{ inputs.search_branch }}
+      STOREFRONT_BFF_BRANCH: ${{ inputs.storefront_bff_branch }}
+      STOREFRONT_UI_BRANCH: ${{ inputs.storefront_ui_branch }}
+      TAX_BRANCH: ${{ inputs.tax_branch }}
+    steps:
+      - name: Checkout GitOps branch
+        uses: actions/checkout@v4
+        with:
+          ref: gitops-developer
+          fetch-depth: 0
+
+      - name: Configure Git author
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Synchronize with latest developer GitOps branch
+        run: git pull --rebase origin gitops-developer
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install YAML dependency
+        run: python -m pip install pyyaml
+
+      - name: Update developer image tags
+        shell: bash
+        run: |
+          cat > service-branches.json <<EOF
+          {
+            "backoffice-bff": "${BACKOFFICE_BFF_BRANCH:-main}",
+            "backoffice-ui": "${BACKOFFICE_UI_BRANCH:-main}",
+            "cart": "${CART_BRANCH:-main}",
+            "customer": "${CUSTOMER_BRANCH:-main}",
+            "inventory": "${INVENTORY_BRANCH:-main}",
+            "media": "${MEDIA_BRANCH:-main}",
+            "order": "${ORDER_BRANCH:-main}",
+            "product": "${PRODUCT_BRANCH:-main}",
+            "sampledata": "${SAMPLEDATA_BRANCH:-main}",
+            "search": "${SEARCH_BRANCH:-main}",
+            "storefront-bff": "${STOREFRONT_BFF_BRANCH:-main}",
+            "storefront-ui": "${STOREFRONT_UI_BRANCH:-main}",
+            "tax": "${TAX_BRANCH:-main}"
+          }
+          EOF
+          python .github/scripts/gitops_update_images.py developer \
+            --service-branches-file service-branches.json
+
+      - name: Commit developer GitOps update
+        shell: bash
+        run: |
+          git add k8s/environments/developer
+          if git diff --cached --quiet; then
+            echo "No developer GitOps changes to commit."
+            exit 0
+          fi
+          git commit -m "gitops: update developer deployment [skip ci]"
+          git push origin HEAD:gitops-developer

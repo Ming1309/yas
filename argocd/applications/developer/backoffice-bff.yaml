@@ -3,11 +3,13 @@ kind: Application
 metadata:
   name: yas-developer-backoffice-bff
   namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
 spec:
   project: default
   source:
     repoURL: https://github.com/Ming1309/yas.git
-    targetRevision: main
+    targetRevision: gitops-developer
     path: k8s/charts/backoffice-bff
     helm:
       valueFiles:

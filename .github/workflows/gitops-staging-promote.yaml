@@ -1,0 +1,76 @@
+name: gitops_staging_promote
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Release tag to promote to staging, for example v1.2.3"
+        required: true
+
+permissions:
+  contents: write
+
+concurrency:
+  group: gitops-staging-promote
+  cancel-in-progress: false
+
+jobs:
+  promote-staging:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Resolve release tag
+        id: release
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            release_tag="${{ inputs.release_tag }}"
+          else
+            release_tag="${GITHUB_REF_NAME}"
+          fi
+          if [[ ! "$release_tag" =~ ^v ]]; then
+            echo "Release tag must start with v, got: $release_tag"
+            exit 1
+          fi
+          echo "tag=$release_tag" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout staging GitOps branch
+        uses: actions/checkout@v4
+        with:
+          ref: gitops-staging
+          fetch-depth: 0
+
+      - name: Configure Git author
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Synchronize with latest staging GitOps branch
+        run: git pull --rebase origin gitops-staging
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install YAML dependency
+        run: python -m pip install pyyaml
+
+      - name: Promote staging image tags
+        run: >
+          python .github/scripts/gitops_update_images.py staging
+          --all
+          --tag "${{ steps.release.outputs.tag }}"
+
+      - name: Commit staging GitOps update
+        shell: bash
+        run: |
+          git add k8s/environments/staging
+          if git diff --cached --quiet; then
+            echo "No staging GitOps changes to commit."
+            exit 0
+          fi
+          git commit -m "gitops: promote staging ${{ steps.release.outputs.tag }} [skip ci]"
+          git push origin HEAD:gitops-staging
