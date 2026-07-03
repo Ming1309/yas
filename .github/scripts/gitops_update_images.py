@@ -204,7 +204,15 @@ def parse_args() -> argparse.Namespace:
 def main() -> int:
     args = parse_args()
 
-    if args.environment == "developer":
+    if args.all:
+        if not args.tag:
+            raise SystemExit("--tag is required with --all")
+        changed = update_fixed_tag(args.environment, sorted(SERVICES), args.tag)
+    elif args.service:
+        if not args.tag:
+            raise SystemExit("--tag is required with --service")
+        changed = update_fixed_tag(args.environment, sorted(args.service), args.tag)
+    elif args.environment == "developer":
         if args.service_branches_file:
             service_branches_json = (REPO_ROOT / args.service_branches_file).read_text(
                 encoding="utf-8-sig"
@@ -213,17 +221,9 @@ def main() -> int:
             service_branches_json = args.service_branches_json
         if not service_branches_json:
             raise SystemExit(
-                "--service-branches-json or --service-branches-file is required for developer"
+                "--service-branches-json, --service-branches-file, --all, or --service is required for developer"
             )
         changed = update_developer(service_branches_json)
-    elif args.all:
-        if not args.tag:
-            raise SystemExit("--tag is required with --all")
-        changed = update_fixed_tag(args.environment, sorted(SERVICES), args.tag)
-    elif args.service:
-        if not args.tag:
-            raise SystemExit("--tag is required with --service")
-        changed = update_fixed_tag(args.environment, sorted(args.service), args.tag)
     else:
         if not args.tag:
             raise SystemExit("--tag is required for changed service updates")

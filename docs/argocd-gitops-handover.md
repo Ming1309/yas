@@ -9,7 +9,7 @@ This work implements the GitOps/ArgoCD part of Project 2:
 - GitHub Actions workflows that update Git manifests instead of applying
   Kubernetes resources directly.
 - `developer_build` workflow for branch-specific developer deployments.
-- `delete_developer_deploy` workflow for pruning the developer environment.
+- `delete_developer_deploy` workflow for resetting the shared developer environment to `main`.
 
 ## Existing ArgoCD Structure
 
@@ -17,9 +17,9 @@ Root Applications:
 
 | Environment | Root Application | Child Application path |
 | --- | --- | --- |
-| dev | `argocd/root/yas-dev.yaml` | `argocd/applications/dev` |
-| staging | `argocd/root/yas-staging.yaml` | `argocd/applications/staging` |
-| developer | `argocd/root/yas-developer.yaml` | `argocd/applications/developer` |
+| dev | `argocd/root/yas-dev.yaml` | `argocd/applications/dev` on `main` |
+| staging | `argocd/root/yas-staging.yaml` | `argocd/applications/staging` on `gitops-staging` |
+| developer | `argocd/root/yas-developer.yaml` | `argocd/applications/developer` on `gitops-developer` |
 
 Each service Application uses the service Helm chart in `k8s/charts/<service>`
 and the environment-specific values file in
@@ -29,10 +29,10 @@ and the environment-specific values file in
 
 | Workflow | Purpose |
 | --- | --- |
-| `.github/workflows/gitops-dev-update.yaml` | After a service CI workflow succeeds on `main`, update that dev service image tag to the full commit SHA. |
-| `.github/workflows/gitops-staging-promote.yaml` | On release tag `v*`, promote staging service image tags to that release tag. |
-| `.github/workflows/developer-build.yaml` | Manual `developer_build` workflow for branch-specific `yas-developer` deployments. |
-| `.github/workflows/delete-developer-deploy.yaml` | Manual delete workflow that moves developer Applications out of the ArgoCD root path so ArgoCD prunes them. |
+| `.github/workflows/gitops-dev-update.yaml` | After a service CI workflow succeeds on `main`, update that dev service image tag to the full commit SHA on `main` using `ADMIN_PAT`. |
+| `.github/workflows/gitops-staging-promote.yaml` | On release tag `v*`, promote staging service image tags to that release tag on `gitops-staging`. |
+| `.github/workflows/developer-build.yaml` | Manual `developer_build` workflow for branch-specific `yas-developer` deployments on `gitops-developer`. |
+| `.github/workflows/delete-developer-deploy.yaml` | Manual reset workflow that returns all developer service image tags to `main`. |
 
 All workflows commit manifest changes back to Git. They do not run
 `kubectl apply` or deploy directly to Kubernetes.
@@ -70,31 +70,16 @@ selected image.
 
 ## Developer Delete Flow
 
-`delete_developer_deploy` moves:
+`delete_developer_deploy` does not remove the shared `yas-developer`
+namespace and does not remove ArgoCD Applications. It resets all developer
+service image tags in:
 
 ```text
-argocd/applications/developer/*.yaml
+k8s/environments/developer/*.values.yaml
 ```
 
-to:
-
-```text
-argocd/applications/developer-disabled/
-```
-
-The root Application `yas-developer` still watches
-`argocd/applications/developer`, sees the child Applications removed, and prunes
-them. Developer child Applications include the ArgoCD resource finalizer:
-
-```yaml
-resources-finalizer.argocd.argoproj.io
-```
-
-That finalizer lets ArgoCD delete the Kubernetes resources managed by each child
-Application instead of orphaning them.
-
-Running `developer_build` later restores the disabled Application manifests
-before updating image tags.
+back to `main`. ArgoCD then syncs `yas-developer` back to the baseline image
+set while the environment stays available for the team.
 
 ## Notes
 

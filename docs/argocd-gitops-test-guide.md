@@ -73,6 +73,15 @@ Remove-Item -LiteralPath service-branches.test.json
 Expected: only selected developer values move away from `main`, then are
 reverted.
 
+Validate developer reset:
+
+```powershell
+python .github/scripts/gitops_update_images.py developer --all --tag main
+git diff -- k8s/environments/developer
+```
+
+Expected: developer values are either unchanged or reset to `main`.
+
 ## 2. Test ArgoCD Root Applications
 
 Apply or verify root Applications:
@@ -207,20 +216,17 @@ Run GitHub Actions workflow:
 
 ```text
 Actions -> delete_developer_deploy -> Run workflow
-confirm=delete
+confirm=reset
 ```
 
 Expected Git result:
 
 ```text
-argocd/applications/developer/*.yaml
+k8s/environments/developer/*.values.yaml
 ```
 
-is moved to:
-
-```text
-argocd/applications/developer-disabled/*.yaml
-```
+all service image tags are reset to `main`. `swagger-ui` remains on
+`swaggerapi/swagger-ui:v4.16.0`.
 
 Expected ArgoCD result:
 
@@ -228,15 +234,18 @@ Expected ArgoCD result:
 kubectl get applications -n argocd | grep yas-developer-
 ```
 
-No child developer Applications should remain after ArgoCD sync/prune.
+Child developer Applications should remain and sync to the baseline `main`
+images.
 
 Expected Kubernetes result:
 
 ```bash
-kubectl get deploy -n yas-developer
+kubectl get deploy -n yas-developer \
+  -o custom-columns=NAME:.metadata.name,IMAGE:.spec.template.spec.containers[0].image
 ```
 
-Developer service deployments should be removed by ArgoCD pruning.
+Developer service deployments should still exist, with service images using the
+`main` tag.
 
 ## 7. Evidence for Report
 
@@ -249,4 +258,4 @@ Capture these screenshots:
 5. Git commit produced by `developer_build`.
 6. ArgoCD synced developer service with the selected image SHA.
 7. `delete_developer_deploy` workflow success.
-8. ArgoCD/Kubernetes evidence that developer resources were pruned.
+8. ArgoCD/Kubernetes evidence that developer service images were reset to `main`.

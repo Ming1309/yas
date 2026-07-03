@@ -1,4 +1,4 @@
-﻿apiVersion: argoproj.io/v1alpha1
+apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
   name: yas-developer-backoffice-ui
@@ -9,7 +9,7 @@ spec:
   project: default
   source:
     repoURL: https://github.com/Ming1309/yas.git
-    targetRevision: main
+    targetRevision: gitops-developer
     path: k8s/charts/backoffice-ui
     helm:
       valueFiles:

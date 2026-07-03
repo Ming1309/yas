@@ -4,26 +4,31 @@ on:
   workflow_dispatch:
     inputs:
       confirm:
-        description: "Type delete to prune yas-developer applications through ArgoCD"
+        description: "Type reset to reset yas-developer image tags to main"
         required: true
         default: "no"
 
 permissions:
   contents: write
 
+concurrency:
+  group: developer-build
+  cancel-in-progress: false
+
 jobs:
-  disable-developer-applications:
+  reset-developer-deployment:
     runs-on: ubuntu-latest
     steps:
       - name: Validate confirmation
-        if: ${{ inputs.confirm != 'delete' }}
+        if: ${{ inputs.confirm != 'reset' }}
         run: |
-          echo "Type 'delete' in the confirm input to disable developer deployment."
+          echo "Type 'reset' in the confirm input to reset developer deployment to main."
           exit 1
 
       - name: Checkout GitOps branch
         uses: actions/checkout@v4
         with:
+          ref: gitops-developer
           fetch-depth: 0
 
       - name: Configure Git author
@@ -31,25 +36,30 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-      - name: Move developer applications out of ArgoCD root path
-        shell: bash
-        run: |
-          mkdir -p argocd/applications/developer argocd/applications/developer-disabled
-          touch argocd/applications/developer/.gitkeep
-          if compgen -G "argocd/applications/developer/*.yaml" > /dev/null; then
-            git mv argocd/applications/developer/*.yaml argocd/applications/developer-disabled/
-            echo "Developer Application manifests moved to developer-disabled."
-          else
-            echo "No developer Application manifests are currently enabled."
-          fi
+      - name: Synchronize with latest developer GitOps branch
+        run: git pull --rebase origin gitops-developer
 
-      - name: Commit developer delete request
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install YAML dependency
+        run: python -m pip install pyyaml
+
+      - name: Reset developer image tags to main
+        run: >
+          python .github/scripts/gitops_update_images.py developer
+          --all
+          --tag main
+
+      - name: Commit developer reset request
         shell: bash
         run: |
-          git add argocd/applications/developer argocd/applications/developer-disabled
+          git add k8s/environments/developer
           if git diff --cached --quiet; then
-            echo "No developer delete changes to commit."
+            echo "No developer reset changes to commit."
             exit 0
           fi
-          git commit -m "gitops: delete developer deployment [skip ci]"
-          git push origin "HEAD:${GITHUB_REF_NAME}"
+          git commit -m "gitops: reset developer deployment to main [skip ci]"
+          git push origin HEAD:gitops-developer

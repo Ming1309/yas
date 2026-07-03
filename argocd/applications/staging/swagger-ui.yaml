@@ -7,7 +7,7 @@ spec:
   project: default
   source:
     repoURL: https://github.com/Ming1309/yas.git
-    targetRevision: main
+    targetRevision: gitops-staging
     path: k8s/charts/swagger-ui
     helm:
       valueFiles:

@@ -59,6 +59,10 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: developer-build
+  cancel-in-progress: false
+
 jobs:
   update-developer-manifests:
     runs-on: ubuntu-latest
@@ -80,6 +84,7 @@ jobs:
       - name: Checkout GitOps branch
         uses: actions/checkout@v4
         with:
+          ref: gitops-developer
           fetch-depth: 0
 
       - name: Configure Git author
@@ -87,19 +92,8 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-      - name: Restore developer ArgoCD applications when previously deleted
-        shell: bash
-        run: |
-          mkdir -p argocd/applications/developer
-          if compgen -G "argocd/applications/developer/*.yaml" > /dev/null; then
-            echo "Developer ArgoCD applications are already enabled."
-          elif compgen -G "argocd/applications/developer-disabled/*.yaml" > /dev/null; then
-            git mv argocd/applications/developer-disabled/*.yaml argocd/applications/developer/
-            echo "Restored developer ArgoCD applications from developer-disabled."
-          else
-            echo "No developer ArgoCD application manifests found to restore."
-          fi
-          touch argocd/applications/developer/.gitkeep
+      - name: Synchronize with latest developer GitOps branch
+        run: git pull --rebase origin gitops-developer
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -135,10 +129,10 @@ jobs:
       - name: Commit developer GitOps update
         shell: bash
         run: |
-          git add -A argocd/applications k8s/environments/developer
+          git add k8s/environments/developer
           if git diff --cached --quiet; then
             echo "No developer GitOps changes to commit."
             exit 0
           fi
           git commit -m "gitops: update developer deployment [skip ci]"
-          git push origin "HEAD:${GITHUB_REF_NAME}"
+          git push origin HEAD:gitops-developer

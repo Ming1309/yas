@@ -13,6 +13,10 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: gitops-staging-promote
+  cancel-in-progress: false
+
 jobs:
   promote-staging:
     runs-on: ubuntu-latest
@@ -32,16 +36,19 @@ jobs:
           fi
           echo "tag=$release_tag" >> "$GITHUB_OUTPUT"
 
-      - name: Checkout main manifests
+      - name: Checkout staging GitOps branch
         uses: actions/checkout@v4
         with:
-          ref: main
+          ref: gitops-staging
           fetch-depth: 0
 
       - name: Configure Git author
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Synchronize with latest staging GitOps branch
+        run: git pull --rebase origin gitops-staging
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -66,4 +73,4 @@ jobs:
             exit 0
           fi
           git commit -m "gitops: promote staging ${{ steps.release.outputs.tag }} [skip ci]"
-          git push origin HEAD:main
+          git push origin HEAD:gitops-staging
