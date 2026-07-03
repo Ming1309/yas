@@ -9,7 +9,7 @@ backend:
     type: ClusterIP
 
   serviceMonitor:
-    enabled: false
+    enabled: true
 
   resources:
     requests:

@@ -1011,7 +1011,117 @@ Run it only after the selected service branch CI has pushed the SHA image.
 `delete_developer_deploy` resets all developer service image tags back to
 `main`; it does not delete the `yas-developer` namespace or ArgoCD Applications.
 
-## 15. Kafka, Elasticsearch, and Search
+## 15. Observability demo
+
+This repo keeps the YAS observability stack in `k8s/deploy/observability`.
+Deploy it with Helm for the demo; it is not part of the ArgoCD app-of-apps
+flow yet.
+
+The stack is:
+
+```txt
+Prometheus + Grafana + Loki + Promtail + Tempo + OpenTelemetry Collector
+```
+
+Install the Helm repositories:
+
+```bash
+cd ~/yas/k8s/deploy
+
+helm repo add grafana https://grafana.github.io/helm-charts
+helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+helm repo add open-telemetry https://open-telemetry.github.io/opentelemetry-helm-charts
+helm repo add jetstack https://charts.jetstack.io
+helm repo update
+```
+
+Install the observability services:
+
+```bash
+helm upgrade --install loki grafana/loki \
+  --create-namespace --namespace observability \
+  -f observability/loki.values.yaml
+
+helm upgrade --install tempo grafana/tempo \
+  --create-namespace --namespace observability \
+  -f observability/tempo.values.yaml
+
+helm upgrade --install cert-manager jetstack/cert-manager \
+  --namespace cert-manager \
+  --create-namespace \
+  --version v1.12.0 \
+  --set installCRDs=true \
+  --set prometheus.enabled=false
+
+helm upgrade --install opentelemetry-operator open-telemetry/opentelemetry-operator \
+  --create-namespace --namespace observability
+
+helm upgrade --install opentelemetry-collector ./observability/opentelemetry \
+  --create-namespace --namespace observability
+
+helm upgrade --install promtail grafana/promtail \
+  --create-namespace --namespace observability \
+  -f observability/promtail.values.yaml
+
+helm upgrade --install prometheus prometheus-community/kube-prometheus-stack \
+  --create-namespace --namespace observability \
+  -f observability/prometheus.values.yaml
+
+helm upgrade --install grafana-operator oci://ghcr.io/grafana-operator/helm-charts/grafana-operator \
+  --version v5.0.2 \
+  --create-namespace --namespace observability
+
+helm upgrade --install grafana ./observability/grafana \
+  --create-namespace --namespace observability \
+  --set hostname="grafana.yas.local.com" \
+  --set grafana.username=admin \
+  --set grafana.password=admin \
+  --set postgresql.username=yasadminuser \
+  --set postgresql.password=admin
+```
+
+The dev environment values enable `ServiceMonitor` for backend and BFF
+services. After Prometheus CRDs are installed, sync `yas-dev` again so ArgoCD
+creates the ServiceMonitor resources:
+
+```bash
+kubectl annotate application yas-dev -n argocd \
+  argocd.argoproj.io/refresh=hard --overwrite
+```
+
+Expose Grafana for a quick demo:
+
+```bash
+kubectl port-forward -n observability svc/prometheus-grafana 3000:80 --address 0.0.0.0
+```
+
+Open:
+
+```txt
+http://<VM_EXTERNAL_IP>:3000
+admin / admin
+```
+
+Verify:
+
+```bash
+kubectl get pods -n observability
+kubectl get servicemonitor -n yas-dev
+
+kubectl run metrics-test -n yas-dev --rm -it \
+  --image=curlimages/curl --restart=Never -- \
+  curl -i http://product:8090/actuator/prometheus
+```
+
+Create traffic from storefront/backoffice, then capture evidence:
+
+```txt
+Grafana dashboard: JVM / HTTP / HikariCP metrics
+Grafana Explore -> Tempo: BFF -> backend -> database trace waterfall
+Grafana Explore -> Loki: namespace/container logs
+```
+
+## 16. Kafka, Elasticsearch, and Search
 
 Deploy Kafka/Search only after the core services are healthy. The original YAS
 Kafka chart used ZooKeeper, but Strimzi `0.47.0` supports only KRaft clusters.
@@ -1134,7 +1244,7 @@ kubectl get pvc -n elasticsearch
 kubectl delete pvc elasticsearch-data-elasticsearch-es-node-0 -n elasticsearch --ignore-not-found
 ```
 
-## 16. Common recovery commands
+## 17. Common recovery commands
 
 Check pods/services:
 
@@ -1190,7 +1300,7 @@ Do not run that from inside the VM. It can fail with:
 ACCESS_TOKEN_SCOPE_INSUFFICIENT
 ```
 
-## 17. Final verification checklist
+## 18. Final verification checklist
 
 Cluster:
 
