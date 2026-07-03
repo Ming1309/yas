@@ -1,6 +1,14 @@
 name: developer_build
 
 on:
+  # TEMP TEST ONLY: remove this push trigger before creating the PR to main.
+  # It lets feature/gitops-argocd test the developer_build flow before this
+  # workflow exists on the default branch.
+  push:
+    branches: ["feature/gitops-argocd"]
+    paths:
+      - ".github/workflows/developer-build.yaml"
+      - ".github/scripts/gitops_update_images.py"
   workflow_dispatch:
     inputs:
       backoffice_bff_branch:
@@ -63,22 +71,21 @@ jobs:
   update-developer-manifests:
     runs-on: ubuntu-latest
     env:
-      SERVICE_BRANCHES_JSON: >-
-        {
-          "backoffice-bff": "${{ inputs.backoffice_bff_branch }}",
-          "backoffice-ui": "${{ inputs.backoffice_ui_branch }}",
-          "cart": "${{ inputs.cart_branch }}",
-          "customer": "${{ inputs.customer_branch }}",
-          "inventory": "${{ inputs.inventory_branch }}",
-          "media": "${{ inputs.media_branch }}",
-          "order": "${{ inputs.order_branch }}",
-          "product": "${{ inputs.product_branch }}",
-          "sampledata": "${{ inputs.sampledata_branch }}",
-          "search": "${{ inputs.search_branch }}",
-          "storefront-bff": "${{ inputs.storefront_bff_branch }}",
-          "storefront-ui": "${{ inputs.storefront_ui_branch }}",
-          "tax": "${{ inputs.tax_branch }}"
-        }
+      BACKOFFICE_BFF_BRANCH: ${{ github.event_name == 'push' && 'main' || inputs.backoffice_bff_branch }}
+      BACKOFFICE_UI_BRANCH: ${{ github.event_name == 'push' && 'main' || inputs.backoffice_ui_branch }}
+      CART_BRANCH: ${{ github.event_name == 'push' && 'main' || inputs.cart_branch }}
+      CUSTOMER_BRANCH: ${{ github.event_name == 'push' && 'main' || inputs.customer_branch }}
+      INVENTORY_BRANCH: ${{ github.event_name == 'push' && 'main' || inputs.inventory_branch }}
+      MEDIA_BRANCH: ${{ github.event_name == 'push' && 'main' || inputs.media_branch }}
+      ORDER_BRANCH: ${{ github.event_name == 'push' && 'main' || inputs.order_branch }}
+      PRODUCT_BRANCH: ${{ github.event_name == 'push' && 'main' || inputs.product_branch }}
+      SAMPLEDATA_BRANCH: ${{ github.event_name == 'push' && 'main' || inputs.sampledata_branch }}
+      SEARCH_BRANCH: ${{ github.event_name == 'push' && 'main' || inputs.search_branch }}
+      STOREFRONT_BFF_BRANCH: ${{ github.event_name == 'push' && 'main' || inputs.storefront_bff_branch }}
+      STOREFRONT_UI_BRANCH: ${{ github.event_name == 'push' && 'main' || inputs.storefront_ui_branch }}
+      # TEMP TEST ONLY: push tests deploy tax from feature/ci-pipeline.
+      # Remove this hard-coded branch together with the temporary push trigger.
+      TAX_BRANCH: ${{ github.event_name == 'push' && 'feature/ci-pipeline' || inputs.tax_branch }}
     steps:
       - name: Checkout GitOps branch
         uses: actions/checkout@v4
@@ -115,7 +122,23 @@ jobs:
       - name: Update developer image tags
         shell: bash
         run: |
-          printf '%s' "$SERVICE_BRANCHES_JSON" > service-branches.json
+          cat > service-branches.json <<EOF
+          {
+            "backoffice-bff": "${BACKOFFICE_BFF_BRANCH:-main}",
+            "backoffice-ui": "${BACKOFFICE_UI_BRANCH:-main}",
+            "cart": "${CART_BRANCH:-main}",
+            "customer": "${CUSTOMER_BRANCH:-main}",
+            "inventory": "${INVENTORY_BRANCH:-main}",
+            "media": "${MEDIA_BRANCH:-main}",
+            "order": "${ORDER_BRANCH:-main}",
+            "product": "${PRODUCT_BRANCH:-main}",
+            "sampledata": "${SAMPLEDATA_BRANCH:-main}",
+            "search": "${SEARCH_BRANCH:-main}",
+            "storefront-bff": "${STOREFRONT_BFF_BRANCH:-main}",
+            "storefront-ui": "${STOREFRONT_UI_BRANCH:-main}",
+            "tax": "${TAX_BRANCH:-main}"
+          }
+          EOF
           python .github/scripts/gitops_update_images.py developer \
             --service-branches-file service-branches.json
 
