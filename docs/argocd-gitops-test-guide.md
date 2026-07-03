@@ -58,10 +58,10 @@ git checkout -- k8s/environments/dev
 Expected: only `dev/tax.values.yaml` changes to the supplied SHA, then is
 reverted.
 
-Validate developer branch mapping with a known full SHA:
+Validate developer branch mapping with a known short SHA:
 
 ```powershell
-$sha = git rev-parse HEAD
+$sha = git rev-parse --short HEAD
 $json = '{"tax":"' + $sha + '","product":"main","cart":"main","customer":"main","inventory":"main","media":"main","order":"main","search":"main","sampledata":"main","storefront-bff":"main","storefront-ui":"main","backoffice-bff":"main","backoffice-ui":"main"}'
 $json | Set-Content -LiteralPath service-branches.test.json -Encoding UTF8
 python .github/scripts/gitops_update_images.py developer --service-branches-file service-branches.test.json
@@ -114,7 +114,7 @@ Before running, make sure the selected branch image exists on DockerHub. Example
 for a branch named `dev_tax_service`:
 
 ```text
-docker.io/mingpham/yas-tax:<full_commit_sha_of_dev_tax_service>
+docker.io/mingpham/yas-tax:<short_commit_sha_of_dev_tax_service>
 ```
 
 Run GitHub Actions workflow:
@@ -139,7 +139,7 @@ k8s/environments/developer/tax.values.yaml
 has:
 
 ```yaml
-tag: <full_commit_sha_of_dev_tax_service>
+tag: <short_commit_sha_of_dev_tax_service>
 ```
 
 Expected ArgoCD/Kubernetes result:
@@ -151,7 +151,7 @@ kubectl -n yas-developer get deploy tax -o jsonpath="{.spec.template.spec.contai
 Expected image:
 
 ```text
-docker.io/mingpham/yas-tax:<full_commit_sha_of_dev_tax_service>
+docker.io/mingpham/yas-tax:<short_commit_sha_of_dev_tax_service>
 ```
 
 ## 4. Test dev environment
@@ -169,7 +169,7 @@ k8s/environments/dev/<service>.values.yaml
 has:
 
 ```yaml
-tag: <full_main_commit_sha>
+tag: <short_main_commit_sha>
 ```
 
 ArgoCD syncs the related `yas-dev-<service>` Application.

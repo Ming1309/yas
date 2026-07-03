@@ -29,7 +29,7 @@ and the environment-specific values file in
 
 | Workflow | Purpose |
 | --- | --- |
-| `.github/workflows/gitops-dev-update.yaml` | After a service CI workflow succeeds on `main`, update that dev service image tag to the full commit SHA on `main` using `ADMIN_PAT`. |
+| `.github/workflows/gitops-dev-update.yaml` | After a service CI workflow succeeds on `main`, update that dev service image tag to the short SHA on `main` using `ADMIN_PAT`. |
 | `.github/workflows/gitops-staging-promote.yaml` | On release tag `v*`, promote staging service image tags to that release tag on `gitops-staging`. |
 | `.github/workflows/developer-build.yaml` | Manual `developer_build` workflow for branch-specific `yas-developer` deployments on `gitops-developer`. |
 | `.github/workflows/delete-developer-deploy.yaml` | Manual reset workflow that returns all developer service image tags to `main`. |
@@ -41,9 +41,9 @@ All workflows commit manifest changes back to Git. They do not run
 
 | Environment | Tag source |
 | --- | --- |
-| `yas-dev` | Full SHA from the successful service CI run on `main` |
+| `yas-dev` | Short SHA from the successful service CI run on `main` |
 | `yas-staging` | Release tag, for example `v1.2.3` |
-| `yas-developer` | `main` for default services, full SHA of the selected branch for services under test |
+| `yas-developer` | `main` for default services, short SHA of the selected branch for services under test |
 
 The helper script `.github/scripts/gitops_update_images.py` updates the
 environment values files consistently for backend charts and UI charts.
@@ -57,14 +57,14 @@ tax_branch=dev_tax_service
 all other service inputs=main
 ```
 
-`developer_build` resolves `origin/dev_tax_service` to its full commit SHA and
+`developer_build` resolves `origin/dev_tax_service` to its short SHA and
 updates:
 
 ```text
 k8s/environments/developer/tax.values.yaml
 ```
 
-The tax image tag becomes the branch commit SHA, while other services stay on
+The tax image tag becomes the branch short SHA, while other services stay on
 `main`. ArgoCD then syncs the `yas-developer-tax` Application and rolls out the
 selected image.
 

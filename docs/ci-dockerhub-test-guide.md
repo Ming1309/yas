@@ -13,8 +13,8 @@ Task CI duoc xem la xong khi chung minh duoc:
 | Workflow chi build image khi event la `push` | Kiem tra `Build` job trong Actions |
 | Docker Hub login bang GitHub Secrets | Step `Login to Docker Hub` pass |
 | Image duoc push len Docker Hub | Step `Build and push Docker images` pass |
-| Branch image tag bang full commit SHA | Docker Hub co tag trung voi `git rev-parse HEAD` |
-| Branch `main` co tag `main` va full commit SHA | Merge vao `main`, xem Docker Hub |
+| Branch image tag bang short SHA | Docker Hub co tag trung voi `git rev-parse --short HEAD` |
+| Branch `main` co tag `main` va short SHA | Merge vao `main`, xem Docker Hub |
 | Release tag `v*` co image tag release | Push tag test nhu `v0.0.0-ci-test` |
 | Manifest/doc commit khong gay CI loop | Thay doi `docs/`, `k8s/`, `argocd/` khong trigger service workflows |
 
@@ -43,19 +43,19 @@ Can thay cac commit lien quan den CI:
 ```text
 docs: add ci docker hub test guide
 8fe3ddf7 docs: add ci docker hub handover
-2c7db0c9 ci: use full sha tags for docker images
+2c7db0c9 ci: use short sha tags for docker images
 ```
 
-Lay full commit SHA de doi chieu Docker Hub:
+Lay short SHA de doi chieu Docker Hub:
 
 ```powershell
-git rev-parse HEAD
+git rev-parse --short HEAD
 ```
 
-Ket qua se la full SHA cua commit moi nhat tai thoi diem ban push, vi du:
+Ket qua se la short SHA cua commit moi nhat tai thoi diem ban push, vi du:
 
 ```text
-<full_commit_sha>
+<short_commit_sha>
 ```
 
 Neu co them commit moi truoc khi push, phai dung SHA moi nhat cua `HEAD`.
@@ -117,7 +117,7 @@ foreach ($f in $files) {
     push_only_build = $text -match "if:\s*\$\{\{ github\.event_name == 'push' \}\}"
     dockerhub_login = $text -match 'docker/login-action@v3' -and $text -match 'secrets\.DOCKERHUB_USERNAME' -and $text -match 'secrets\.DOCKERHUB_TOKEN'
     dockerhub_image = $text -match 'images:\s*docker\.io/mingpham/yas-'
-    full_sha_tag = $text -match 'type=sha,format=long,prefix='
+    short_sha_tag = $text -match 'type=sha,format=short,prefix='
     main_tag = $text -match "type=raw,value=main,enable=\$\{\{ github\.ref == 'refs/heads/main' \}\}"
     release_tag = $text -match 'type=ref,event=tag'
     push_true = $text -match 'push:\s*true'
@@ -177,7 +177,7 @@ Mo tung workflow service va kiem tra:
 | `Test` job | Pass |
 | `Build` job | Chay, khong bi skip |
 | `Login to Docker Hub` | Pass |
-| `Extract Docker metadata` | Co tag full commit SHA |
+| `Extract Docker metadata` | Co tag short SHA |
 | `Build and push Docker images` | Pass |
 
 Quan trong: khong dung `workflow_dispatch` de test Docker push, vi cac workflow
@@ -185,10 +185,10 @@ hien cau hinh `Build` job chi push image khi event la `push`.
 
 ## 5. Test Docker Hub tag
 
-Sau khi GitHub Actions pass, lay full SHA cua commit da push:
+Sau khi GitHub Actions pass, lay short SHA cua commit da push:
 
 ```powershell
-git rev-parse HEAD
+git rev-parse --short HEAD
 ```
 
 Vao Docker Hub namespace `mingpham`, kiem tra tag trong cac repository:
@@ -209,10 +209,10 @@ Vao Docker Hub namespace `mingpham`, kiem tra tag trong cac repository:
 | backoffice-ui | `mingpham/yas-backoffice-ui` |
 | sampledata | `mingpham/yas-sampledata` |
 
-Moi repo phai co tag bang full SHA, vi du:
+Moi repo phai co tag bang short SHA, vi du:
 
 ```text
-docker.io/mingpham/yas-tax:<full_commit_sha>
+docker.io/mingpham/yas-tax:<short_commit_sha>
 ```
 
 ## 6. Test tag `main`
@@ -223,7 +223,7 @@ Sau khi merge, GitHub Actions tren `main` phai push:
 
 ```text
 docker.io/mingpham/yas-tax:main
-docker.io/mingpham/yas-tax:<full_main_commit_sha>
+docker.io/mingpham/yas-tax:<short_main_commit_sha>
 ```
 
 Lap lai voi cac service can chung minh trong demo.
@@ -261,9 +261,9 @@ Chup cac man hinh sau:
 1. GitHub Actions list co workflow CI pass.
 2. Chi tiet workflow: `Test` job pass.
 3. Chi tiet workflow: `Build` job pass.
-4. Step `Extract Docker metadata` hien full SHA tag.
+4. Step `Extract Docker metadata` hien short SHA tag.
 5. Step `Build and push Docker images` pass.
-6. Docker Hub repository co tag full commit SHA.
+6. Docker Hub repository co tag short SHA.
 7. Sau khi merge main: Docker Hub co tag `main`.
 8. Neu test release: Docker Hub co tag `v0.0.0-ci-test` hoac tag release that.
 
@@ -273,7 +273,7 @@ Co the ket luan task CI/DockerHub da xong khi:
 
 - Local checks o muc 3 deu pass.
 - Push branch len GitHub va 13 workflow can test pass.
-- Docker Hub co image tag full commit SHA.
+- Docker Hub co image tag short SHA.
 - Sau khi merge vao `main`, Docker Hub co tag `main`.
 - Neu nhom demo release, tag `v*` tao image tag release thanh cong.
 
@@ -284,6 +284,6 @@ Co the ket luan task CI/DockerHub da xong khi:
 | `Login to Docker Hub` fail | Secret sai ten hoac token sai | Kiem tra `DOCKERHUB_USERNAME`, `DOCKERHUB_TOKEN` |
 | `denied: requested access` | Token khong co quyen push vao `mingpham` | Dung token co quyen read/write voi namespace nay |
 | `Build` job bi skip | Dang chay `workflow_dispatch` | Test bang `push`, khong test bang manual dispatch |
-| Khong thay tag full SHA | Workflow chua co `format=long` tren branch da push | Kiem tra file workflow tren GitHub branch |
+| Khong thay tag short SHA | Workflow chua co `format=short` tren branch da push | Kiem tra file workflow tren GitHub branch |
 | Maven/npm test fail | Loi test/build cua service | Mo log step fail dau tien va sua theo service |
-| Docker Hub chi co tag `main` | Dang xem run tren branch `main` | Branch thuong can doi chieu tag full SHA |
+| Docker Hub chi co tag `main` | Dang xem run tren branch `main` | Branch thuong can doi chieu tag short SHA |

@@ -40,15 +40,15 @@ Each Docker Hub workflow publishes:
 
 | Event | Tags |
 | --- | --- |
-| Push to any branch | Full commit SHA |
-| Push to `main` | `main` and full commit SHA |
+| Push to any branch | Short short SHA |
+| Push to `main` | `main` and short SHA |
 | Push tag `v*` | Release tag, for example `v1.2.3` |
 
 The workflows use `docker/metadata-action` with:
 
 ```yaml
 tags: |
-  type=sha,format=long,prefix=
+  type=sha,format=short,prefix=
   type=raw,value=main,enable=${{ github.ref == 'refs/heads/main' }}
   type=ref,event=tag
 ```
@@ -66,7 +66,7 @@ The following checks were run locally on branch `feature/ci-pipeline`:
 
 - YAML parsing for all 13 Docker Hub workflow files.
 - Static workflow contract check for branch trigger, release tag trigger,
-  workflow dispatch, Docker Hub login, full SHA tags, `main` tag, release tag,
+  workflow dispatch, Docker Hub login, short SHA tags, `main` tag, release tag,
   and `push: true`.
 - `git diff --check HEAD -- .github/workflows`.
 

@@ -80,10 +80,14 @@ jobs:
         run: python -m pip install pyyaml
 
       - name: Update dev image tag for completed service
-        run: >
-          python .github/scripts/gitops_update_images.py dev
-          --service "${{ steps.service.outputs.service }}"
-          --tag "${{ github.event.workflow_run.head_sha }}"
+        shell: bash
+        env:
+          WORKFLOW_HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          short_sha="${WORKFLOW_HEAD_SHA:0:7}"
+          python .github/scripts/gitops_update_images.py dev \
+            --service "${{ steps.service.outputs.service }}" \
+            --tag "$short_sha"
 
       - name: Commit dev GitOps update
         shell: bash

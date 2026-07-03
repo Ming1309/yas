@@ -158,7 +158,7 @@ jobs:
         with:
           images: docker.io/mingpham/yas-tax
           tags: |
-            type=sha,format=long,prefix=
+            type=sha,format=short,prefix=
             type=raw,value=main,enable=${{ github.ref == 'refs/heads/main' }}
             type=ref,event=tag
 

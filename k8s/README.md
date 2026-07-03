@@ -999,9 +999,9 @@ admin account with `Contents: Read and write`; the repository ruleset must allow
 Image tag policy:
 
 ```txt
-yas-dev        uses full commit SHA tags so ArgoCD sees a manifest diff
+yas-dev        uses short SHA tags so ArgoCD sees a manifest diff
 yas-staging    uses release tags such as v1.2.3
-yas-developer  uses main as baseline and branch commit SHA for services under test
+yas-developer  uses main as baseline and branch short SHA for services under test
 ```
 
 `developer_build` does not build images. It resolves branch inputs to image tags

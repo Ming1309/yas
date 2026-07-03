@@ -157,7 +157,7 @@ jobs:
         with:
           images: docker.io/mingpham/yas-sampledata
           tags: |
-            type=sha,format=long,prefix=
+            type=sha,format=short,prefix=
             type=raw,value=main,enable=${{ github.ref == 'refs/heads/main' }}
             type=ref,event=tag
 

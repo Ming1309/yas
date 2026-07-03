@@ -154,8 +154,8 @@ def resolve_branch_tag(branch: str) -> str:
     branch = branch.strip()
     if not branch or branch == "main":
         return "main"
-    if re.fullmatch(r"[0-9a-fA-F]{40}", branch):
-        return branch.lower()
+    if re.fullmatch(r"[0-9a-fA-F]{7,40}", branch):
+        return branch.lower()[:7]
 
     ref = branch
     if ref.startswith("origin/"):
@@ -167,7 +167,7 @@ def resolve_branch_tag(branch: str) -> str:
     for line in output.splitlines():
         sha, remote_ref = line.split(None, 1)
         if remote_ref == f"refs/heads/{ref}":
-            return sha
+            return sha[:7]
     raise SystemExit(f"Branch not found on origin: {branch}")
 
 
