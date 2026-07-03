@@ -5,7 +5,7 @@ backend:
   service:
     type: ClusterIP
   serviceMonitor:
-    enabled: false
+    enabled: true
   resources:
     requests:
       cpu: 100m

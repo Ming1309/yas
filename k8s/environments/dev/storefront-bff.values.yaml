@@ -11,7 +11,7 @@ backend:
     enabled: false
 
   serviceMonitor:
-    enabled: false
+    enabled: true
 
   resources:
     requests:
