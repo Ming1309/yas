@@ -1,0 +1,96 @@
+name: gitops_dev_update
+
+on:
+  workflow_run:
+    workflows:
+      - "backoffice-bff service ci"
+      - "backoffice service ci"
+      - "cart service ci"
+      - "customer service ci"
+      - "inventory service ci"
+      - "media service ci"
+      - "order service ci"
+      - "product service ci"
+      - "sampledata service ci"
+      - "search service ci"
+      - "storefront-bff service ci"
+      - "storefront service ci"
+      - "tax service ci"
+    types: [completed]
+    branches: ["main"]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: gitops-dev-update-main
+  cancel-in-progress: false
+
+jobs:
+  update-dev-manifests:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Resolve service from completed CI workflow
+        id: service
+        shell: bash
+        run: |
+          case "${{ github.event.workflow_run.name }}" in
+            "backoffice-bff service ci") service="backoffice-bff" ;;
+            "backoffice service ci") service="backoffice-ui" ;;
+            "cart service ci") service="cart" ;;
+            "customer service ci") service="customer" ;;
+            "inventory service ci") service="inventory" ;;
+            "media service ci") service="media" ;;
+            "order service ci") service="order" ;;
+            "product service ci") service="product" ;;
+            "sampledata service ci") service="sampledata" ;;
+            "search service ci") service="search" ;;
+            "storefront-bff service ci") service="storefront-bff" ;;
+            "storefront service ci") service="storefront-ui" ;;
+            "tax service ci") service="tax" ;;
+            *)
+              echo "Unsupported workflow: ${{ github.event.workflow_run.name }}"
+              exit 1
+              ;;
+          esac
+          echo "service=$service" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Configure Git author
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Synchronize with latest main
+        run: git pull --rebase origin main
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install YAML dependency
+        run: python -m pip install pyyaml
+
+      - name: Update dev image tag for completed service
+        run: >
+          python .github/scripts/gitops_update_images.py dev
+          --service "${{ steps.service.outputs.service }}"
+          --tag "${{ github.event.workflow_run.head_sha }}"
+
+      - name: Commit dev GitOps update
+        shell: bash
+        run: |
+          git add "k8s/environments/dev/${{ steps.service.outputs.service }}.values.yaml"
+          if git diff --cached --quiet; then
+            echo "No dev GitOps changes to commit."
+            exit 0
+          fi
+          git commit -m "gitops: update dev ${{ steps.service.outputs.service }} image tag [skip ci]"
+          git push origin HEAD:main

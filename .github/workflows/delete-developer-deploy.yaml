@@ -1,0 +1,55 @@
+name: delete_developer_deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: "Type delete to prune yas-developer applications through ArgoCD"
+        required: true
+        default: "no"
+
+permissions:
+  contents: write
+
+jobs:
+  disable-developer-applications:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate confirmation
+        if: ${{ inputs.confirm != 'delete' }}
+        run: |
+          echo "Type 'delete' in the confirm input to disable developer deployment."
+          exit 1
+
+      - name: Checkout GitOps branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configure Git author
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Move developer applications out of ArgoCD root path
+        shell: bash
+        run: |
+          mkdir -p argocd/applications/developer argocd/applications/developer-disabled
+          touch argocd/applications/developer/.gitkeep
+          if compgen -G "argocd/applications/developer/*.yaml" > /dev/null; then
+            git mv argocd/applications/developer/*.yaml argocd/applications/developer-disabled/
+            echo "Developer Application manifests moved to developer-disabled."
+          else
+            echo "No developer Application manifests are currently enabled."
+          fi
+
+      - name: Commit developer delete request
+        shell: bash
+        run: |
+          git add argocd/applications/developer argocd/applications/developer-disabled
+          if git diff --cached --quiet; then
+            echo "No developer delete changes to commit."
+            exit 0
+          fi
+          git commit -m "gitops: delete developer deployment [skip ci]"
+          git push origin "HEAD:${GITHUB_REF_NAME}"

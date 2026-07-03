@@ -1,0 +1,131 @@
+name: developer_build
+
+on:
+  workflow_dispatch:
+    inputs:
+      backoffice_bff_branch:
+        description: "Branch or full commit SHA for backoffice-bff"
+        required: false
+        default: "main"
+      backoffice_ui_branch:
+        description: "Branch or full commit SHA for backoffice-ui"
+        required: false
+        default: "main"
+      cart_branch:
+        description: "Branch or full commit SHA for cart"
+        required: false
+        default: "main"
+      customer_branch:
+        description: "Branch or full commit SHA for customer"
+        required: false
+        default: "main"
+      inventory_branch:
+        description: "Branch or full commit SHA for inventory"
+        required: false
+        default: "main"
+      media_branch:
+        description: "Branch or full commit SHA for media"
+        required: false
+        default: "main"
+      order_branch:
+        description: "Branch or full commit SHA for order"
+        required: false
+        default: "main"
+      product_branch:
+        description: "Branch or full commit SHA for product"
+        required: false
+        default: "main"
+      sampledata_branch:
+        description: "Branch or full commit SHA for sampledata"
+        required: false
+        default: "main"
+      search_branch:
+        description: "Branch or full commit SHA for search"
+        required: false
+        default: "main"
+      storefront_bff_branch:
+        description: "Branch or full commit SHA for storefront-bff"
+        required: false
+        default: "main"
+      storefront_ui_branch:
+        description: "Branch or full commit SHA for storefront-ui"
+        required: false
+        default: "main"
+      tax_branch:
+        description: "Branch or full commit SHA for tax"
+        required: false
+        default: "main"
+
+permissions:
+  contents: write
+
+jobs:
+  update-developer-manifests:
+    runs-on: ubuntu-latest
+    env:
+      SERVICE_BRANCHES_JSON: >-
+        {
+          "backoffice-bff": "${{ inputs.backoffice_bff_branch }}",
+          "backoffice-ui": "${{ inputs.backoffice_ui_branch }}",
+          "cart": "${{ inputs.cart_branch }}",
+          "customer": "${{ inputs.customer_branch }}",
+          "inventory": "${{ inputs.inventory_branch }}",
+          "media": "${{ inputs.media_branch }}",
+          "order": "${{ inputs.order_branch }}",
+          "product": "${{ inputs.product_branch }}",
+          "sampledata": "${{ inputs.sampledata_branch }}",
+          "search": "${{ inputs.search_branch }}",
+          "storefront-bff": "${{ inputs.storefront_bff_branch }}",
+          "storefront-ui": "${{ inputs.storefront_ui_branch }}",
+          "tax": "${{ inputs.tax_branch }}"
+        }
+    steps:
+      - name: Checkout GitOps branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configure Git author
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Restore developer ArgoCD applications when previously deleted
+        shell: bash
+        run: |
+          mkdir -p argocd/applications/developer
+          if compgen -G "argocd/applications/developer/*.yaml" > /dev/null; then
+            echo "Developer ArgoCD applications are already enabled."
+          elif compgen -G "argocd/applications/developer-disabled/*.yaml" > /dev/null; then
+            git mv argocd/applications/developer-disabled/*.yaml argocd/applications/developer/
+            echo "Restored developer ArgoCD applications from developer-disabled."
+          else
+            echo "No developer ArgoCD application manifests found to restore."
+          fi
+          touch argocd/applications/developer/.gitkeep
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install YAML dependency
+        run: python -m pip install pyyaml
+
+      - name: Update developer image tags
+        shell: bash
+        run: |
+          printf '%s' "$SERVICE_BRANCHES_JSON" > service-branches.json
+          python .github/scripts/gitops_update_images.py developer \
+            --service-branches-file service-branches.json
+
+      - name: Commit developer GitOps update
+        shell: bash
+        run: |
+          git add -A argocd/applications k8s/environments/developer
+          if git diff --cached --quiet; then
+            echo "No developer GitOps changes to commit."
+            exit 0
+          fi
+          git commit -m "gitops: update developer deployment [skip ci]"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
