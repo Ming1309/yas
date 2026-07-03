@@ -1,14 +1,11 @@
 backend:
   image:
     repository: docker.io/mingpham/yas-tax
-    tag: main
-
+    tag: 1244a754755fddb322fbef3078a9a42cad85dd79
   service:
     type: ClusterIP
-
   serviceMonitor:
     enabled: false
-
   resources:
     requests:
       cpu: 100m
