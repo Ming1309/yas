@@ -6,6 +6,6 @@ config:
       - action: keep
         source_labels:
           - __meta_kubernetes_namespace
-        regex: "yas-dev|observability"
+        regex: "yas-dev"
     pipelineStages:
       - docker: {}
