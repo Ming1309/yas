@@ -124,7 +124,7 @@ wget: server returned error: HTTP/1.1 403 Forbidden
 kubectl apply -f istio/virtual-service-retry.yaml
 
 # 2. Giả lập lỗi 500 trên Pod tax bằng EnvoyFilter để test
-kubectl apply -f envoy-filter-fault.yaml
+kubectl apply -f istio/tax-fault-injection.yaml
 
 # 3. Lấy tên Pod của tax để chuẩn bị xem log
 kubectl get pods -n yas-dev | grep tax
@@ -148,7 +148,7 @@ Show log in ra của Pod `tax`:
 
 ```bash
 # 6. DỌN DẸP hệ thống: Gỡ bỏ cấu hình giả lập lỗi
-kubectl delete -f envoy-filter-fault.yaml
+kubectl delete -f istio/tax-fault-injection.yaml
 ```
 
 ---

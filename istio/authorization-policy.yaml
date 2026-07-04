@@ -1,7 +1,7 @@
 apiVersion: security.istio.io/v1
 kind: AuthorizationPolicy
 metadata:
-  name: product-allow-storefront-bff
+  name: product-allow-rules
   namespace: yas-dev
 spec:
   selector:
@@ -11,12 +11,16 @@ spec:
   rules:
   - from:
     - source:
-        principals: ["cluster.local/ns/yas-dev/sa/storefront-bff"]
+        principals:
+        - "cluster.local/ns/yas-dev/sa/storefront-bff"
+        - "cluster.local/ns/yas-dev/sa/order"
+        - "cluster.local/ns/yas-dev/sa/search"
+        - "cluster.local/ns/yas-dev/sa/inventory"
 ---
 apiVersion: security.istio.io/v1
 kind: AuthorizationPolicy
 metadata:
-  name: cart-allow-storefront-bff
+  name: cart-allow-rules
   namespace: yas-dev
 spec:
   selector:
@@ -26,4 +30,55 @@ spec:
   rules:
   - from:
     - source:
-        principals: ["cluster.local/ns/yas-dev/sa/storefront-bff"]
+        principals:
+        - "cluster.local/ns/yas-dev/sa/storefront-bff"
+        - "cluster.local/ns/yas-dev/sa/order"
+---
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: search-allow-rules
+  namespace: yas-dev
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: search
+  action: ALLOW
+  rules:
+  - from:
+    - source:
+        principals:
+        - "cluster.local/ns/yas-dev/sa/storefront-bff"
+---
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: order-allow-rules
+  namespace: yas-dev
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: order
+  action: ALLOW
+  rules:
+  - from:
+    - source:
+        principals:
+        - "cluster.local/ns/yas-dev/sa/storefront-bff"
+        - "cluster.local/ns/yas-dev/sa/payment"
+---
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: tax-allow-rules
+  namespace: yas-dev
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: tax
+  action: ALLOW
+  rules:
+  - from:
+    - source:
+        principals:
+        - "cluster.local/ns/yas-dev/sa/order"
