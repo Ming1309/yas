@@ -22,6 +22,7 @@ public class SecurityConfig {
         return http
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/actuator/prometheus", "/actuator/health/**",
+                    "/cart/actuator/prometheus", "/cart/actuator/health/**",
                     "/swagger-ui", "/swagger-ui/**", "/error", "/v3/api-docs/**").permitAll()
                 .requestMatchers("/storefront/carts", "/storefront/carts/**").hasRole("CUSTOMER")
                 .requestMatchers("/storefront/**").permitAll()

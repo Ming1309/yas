@@ -11,5 +11,5 @@ spec:
       app.kubernetes.io/name: {{ include "backend.fullname" . }}
   endpoints:
     - port: 'metric'
-      path: '/actuator/prometheus'
+      path: {{ .Values.serviceMonitor.path | default "/actuator/prometheus" | quote }}
   {{- end }}

@@ -1081,8 +1081,22 @@ helm upgrade --install grafana ./observability/grafana \
 ```
 
 The dev environment values enable `ServiceMonitor` for backend and BFF
-services. After Prometheus CRDs are installed, sync `yas-dev` again so ArgoCD
-creates the ServiceMonitor resources:
+services. Servlet services expose actuator metrics under their service context
+path, so the ServiceMonitor path is configured per service. Examples:
+
+```txt
+product     /product/actuator/prometheus
+cart        /cart/actuator/prometheus
+order       /order/actuator/prometheus
+tax         /tax/actuator/prometheus
+customer    /customer/actuator/prometheus
+inventory   /inventory/actuator/prometheus
+search      /search/actuator/prometheus
+sampledata  /sampledata/actuator/prometheus
+```
+
+After Prometheus CRDs are installed, sync `yas-dev` again so ArgoCD creates the
+ServiceMonitor resources:
 
 ```bash
 kubectl annotate application yas-dev -n argocd \
@@ -1110,7 +1124,7 @@ kubectl get servicemonitor -n yas-dev
 
 kubectl run metrics-test -n yas-dev --rm -it \
   --image=curlimages/curl --restart=Never -- \
-  curl -i http://product:8090/actuator/prometheus
+  curl -i http://product:8090/product/actuator/prometheus
 ```
 
 Create traffic from storefront/backoffice, then capture evidence:

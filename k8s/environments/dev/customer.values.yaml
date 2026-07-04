@@ -8,6 +8,7 @@ backend:
 
   serviceMonitor:
     enabled: true
+    path: /customer/actuator/prometheus
 
   resources:
     requests:

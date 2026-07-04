@@ -8,6 +8,7 @@ backend:
 
   serviceMonitor:
     enabled: true
+    path: /tax/actuator/prometheus
 
   resources:
     requests:
