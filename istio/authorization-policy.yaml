@@ -1,0 +1,29 @@
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: product-allow-storefront-bff
+  namespace: yas-dev
+spec:
+  selector:
+    matchLabels:
+      app: product
+  action: ALLOW
+  rules:
+  - from:
+    - source:
+        principals: ["cluster.local/ns/yas-dev/sa/storefront-bff"]
+---
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: cart-allow-storefront-bff
+  namespace: yas-dev
+spec:
+  selector:
+    matchLabels:
+      app: cart
+  action: ALLOW
+  rules:
+  - from:
+    - source:
+        principals: ["cluster.local/ns/yas-dev/sa/storefront-bff"]
