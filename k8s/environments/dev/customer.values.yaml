@@ -6,6 +6,9 @@ backend:
     type: ClusterIP
   serviceMonitor:
     enabled: true
+  opentelemetry:
+    enabled: true
+    serviceName: customer
   resources:
     requests:
       cpu: 100m

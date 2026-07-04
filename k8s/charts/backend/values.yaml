@@ -81,12 +81,34 @@ extraVolumeMounts: []
 extraApplicationConfigPaths: []
 #  - /opt/config/application-example.yaml
 
+opentelemetry:
+  enabled: false
+  image:
+    repository: ghcr.io/open-telemetry/opentelemetry-operator/autoinstrumentation-java
+    tag: 2.20.1
+    pullPolicy: IfNotPresent
+  mountPath: /otel
+  agentPath: /otel/opentelemetry-javaagent.jar
+  serviceName: ""
+  otlpEndpoint: http://opentelemetry-collector.observability:4318
+  otlpProtocol: http/protobuf
+  tracesExporter: otlp
+  metricsExporter: none
+  logsExporter: none
+
 lifecycle:
   preStop:
     exec:
       command: ["sh", "-c", "sleep 10"]
 
 terminationGracePeriodSeconds: 45
+
+startupProbe:
+  periodSeconds: 10
+  failureThreshold: 40
+  httpGet:
+    path: /actuator/health/liveness
+    port: metric
 
 livenessProbe:
   periodSeconds: 10

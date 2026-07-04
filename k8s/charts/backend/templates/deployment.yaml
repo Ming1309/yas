@@ -36,9 +36,23 @@ spec:
         - name: yas-configuration
           configMap:
             name: yas-configuration-configmap
+        {{- if .Values.opentelemetry.enabled }}
+        - name: opentelemetry-javaagent
+          emptyDir: {}
+        {{- end }}
         {{- with .Values.extraVolumes}}
           {{- toYaml . | nindent 8 }}
         {{- end }}
+      {{- if .Values.opentelemetry.enabled }}
+      initContainers:
+        - name: opentelemetry-javaagent
+          image: "{{ .Values.opentelemetry.image.repository }}:{{ .Values.opentelemetry.image.tag }}"
+          imagePullPolicy: {{ .Values.opentelemetry.image.pullPolicy }}
+          command: ["cp", "/javaagent.jar", "{{ .Values.opentelemetry.agentPath }}"]
+          volumeMounts:
+            - mountPath: {{ .Values.opentelemetry.mountPath }}
+              name: opentelemetry-javaagent
+      {{- end }}
       containers:
         - name: {{ include "backend.fullname" . }}
           securityContext:
@@ -63,12 +77,32 @@ spec:
             - name: SPRING_CONFIG_ADDITIONAL_LOCATION
               value: /opt/yas/config/application.yaml
             {{- end }}
+            {{- if .Values.opentelemetry.enabled }}
+            - name: JAVA_TOOL_OPTIONS
+              value: "-javaagent:{{ .Values.opentelemetry.agentPath }}"
+            - name: OTEL_SERVICE_NAME
+              value: {{ .Values.opentelemetry.serviceName | default (include "backend.fullname" .) | quote }}
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: {{ .Values.opentelemetry.otlpEndpoint | quote }}
+            - name: OTEL_EXPORTER_OTLP_PROTOCOL
+              value: {{ .Values.opentelemetry.otlpProtocol | quote }}
+            - name: OTEL_TRACES_EXPORTER
+              value: {{ .Values.opentelemetry.tracesExporter | quote }}
+            - name: OTEL_METRICS_EXPORTER
+              value: {{ .Values.opentelemetry.metricsExporter | quote }}
+            - name: OTEL_LOGS_EXPORTER
+              value: {{ .Values.opentelemetry.logsExporter | quote }}
+            {{- end }}
             {{- with .Values.extraEnvs }}
               {{- toYaml . | nindent 12 }}
             {{- end }}
           volumeMounts:
             - mountPath: /opt/yas/config
               name: yas-configuration
+            {{- if .Values.opentelemetry.enabled }}
+            - mountPath: {{ .Values.opentelemetry.mountPath }}
+              name: opentelemetry-javaagent
+            {{- end }}
             {{- with .Values.extraVolumeMounts }}
               {{- toYaml . | nindent 12 }}
             {{- end }}
@@ -80,6 +114,8 @@ spec:
               containerPort: {{ .Values.metricPort }}
           lifecycle:
             {{ toYaml .Values.lifecycle | nindent 12 }}
+          startupProbe:
+            {{- toYaml .Values.startupProbe | nindent 12 }}
           livenessProbe:
             {{- toYaml .Values.livenessProbe | nindent 12 }}
           readinessProbe:

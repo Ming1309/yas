@@ -1097,6 +1097,20 @@ The applications must include `micrometer-registry-prometheus`; otherwise
 Spring Boot does not create the Prometheus actuator endpoint and requests return
 `No static resource actuator/prometheus`.
 
+The dev backend values also enable OpenTelemetry Java Agent injection for the
+services used in the tracing demo. The backend chart copies the agent from the
+OpenTelemetry auto-instrumentation image and exports spans to:
+
+```txt
+http://opentelemetry-collector.observability:4318
+```
+
+Tempo is reachable through the Grafana datasource at:
+
+```txt
+http://tempo:3200
+```
+
 After Prometheus CRDs are installed, sync `yas-dev` again so ArgoCD creates the
 ServiceMonitor resources:
 
@@ -1128,6 +1142,34 @@ kubectl run metrics-test -n yas-dev --rm -it \
   --image=curlimages/curl --restart=Never -- \
   curl -i http://product:8090/actuator/prometheus
 ```
+
+Verify tracing after `yas-dev` has synced the OpenTelemetry-enabled values:
+
+```bash
+kubectl get deploy product storefront-bff backoffice-bff -n yas-dev -o yaml \
+  | grep -n "OTEL\\|JAVA_TOOL_OPTIONS" -A5
+
+VM_IP=$(curl -s -H "Metadata-Flavor: Google" \
+  "http://metadata.google.internal/computeMetadata/v1/instance/network-interfaces/0/access-configs/0/external-ip")
+
+for i in {1..50}; do
+  curl -s "http://$VM_IP:30081/api/product/storefront/categories" >/dev/null
+  curl -s "http://$VM_IP:30081/api/product/storefront/products/featured?pageNo=0" >/dev/null
+done
+
+START=$(date -u -d '30 minutes ago' +%s)
+END=$(date -u +%s)
+
+kubectl run tempo-search -n observability --rm -it \
+  --image=curlimages/curl --restart=Never -- \
+  curl -G -s "http://tempo:3200/api/search" \
+  --data-urlencode "start=$START" \
+  --data-urlencode "end=$END" \
+  --data-urlencode "limit=5"
+```
+
+`traces: []` means the app is not sending spans yet or there has been no recent
+traffic. Create traffic and refresh Grafana with a recent time range.
 
 Create traffic from storefront/backoffice, then capture evidence:
 

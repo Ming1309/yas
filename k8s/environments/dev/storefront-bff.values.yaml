@@ -9,6 +9,9 @@ backend:
     enabled: false
   serviceMonitor:
     enabled: true
+  opentelemetry:
+    enabled: true
+    serviceName: storefront-bff
   resources:
     requests:
       cpu: 100m
