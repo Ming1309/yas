@@ -1,15 +1,12 @@
 backend:
   image:
     repository: docker.io/mingpham/yas-search
-    tag: main
-
+    tag: 37311be
   service:
     type: ClusterIP
-
   serviceMonitor:
     enabled: true
     path: /search/actuator/prometheus
-
   resources:
     requests:
       cpu: 100m
