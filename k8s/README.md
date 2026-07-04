@@ -1081,19 +1081,16 @@ helm upgrade --install grafana ./observability/grafana \
 ```
 
 The dev environment values enable `ServiceMonitor` for backend and BFF
-services. Servlet services expose actuator metrics under their service context
-path, so the ServiceMonitor path is configured per service. Examples:
+services. Metrics are scraped from the management port, so the ServiceMonitor
+path stays:
 
 ```txt
-product     /product/actuator/prometheus
-cart        /cart/actuator/prometheus
-order       /order/actuator/prometheus
-tax         /tax/actuator/prometheus
-customer    /customer/actuator/prometheus
-inventory   /inventory/actuator/prometheus
-search      /search/actuator/prometheus
-sampledata  /sampledata/actuator/prometheus
+/actuator/prometheus
 ```
+
+The applications must include `micrometer-registry-prometheus`; otherwise
+Spring Boot does not create the Prometheus actuator endpoint and requests return
+`No static resource actuator/prometheus`.
 
 After Prometheus CRDs are installed, sync `yas-dev` again so ArgoCD creates the
 ServiceMonitor resources:
@@ -1124,7 +1121,7 @@ kubectl get servicemonitor -n yas-dev
 
 kubectl run metrics-test -n yas-dev --rm -it \
   --image=curlimages/curl --restart=Never -- \
-  curl -i http://product:8090/product/actuator/prometheus
+  curl -i http://product:8090/actuator/prometheus
 ```
 
 Create traffic from storefront/backoffice, then capture evidence:

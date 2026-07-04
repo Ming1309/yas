@@ -6,7 +6,6 @@ backend:
     type: ClusterIP
   serviceMonitor:
     enabled: true
-    path: /tax/actuator/prometheus
   resources:
     requests:
       cpu: 110m
