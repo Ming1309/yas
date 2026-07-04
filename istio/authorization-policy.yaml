@@ -6,7 +6,7 @@ metadata:
 spec:
   selector:
     matchLabels:
-      app: product
+      app.kubernetes.io/name: product
   action: ALLOW
   rules:
   - from:
@@ -21,7 +21,7 @@ metadata:
 spec:
   selector:
     matchLabels:
-      app: cart
+      app.kubernetes.io/name: cart
   action: ALLOW
   rules:
   - from:
