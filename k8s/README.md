@@ -1056,7 +1056,9 @@ helm upgrade --install cert-manager jetstack/cert-manager \
 helm upgrade --install opentelemetry-operator open-telemetry/opentelemetry-operator \
   --create-namespace --namespace observability
 
-helm upgrade --install opentelemetry-collector ./observability/opentelemetry \
+helm uninstall opentelemetry-collector -n observability || true
+
+helm upgrade --install opentelemetry ./observability/opentelemetry \
   --create-namespace --namespace observability
 
 helm upgrade --install promtail grafana/promtail \
