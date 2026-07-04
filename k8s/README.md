@@ -1088,6 +1088,9 @@ path stays:
 /actuator/prometheus
 ```
 
+`sampledata` is not monitored by default because dev keeps it scaled to zero
+after seeding demo data.
+
 The applications must include `micrometer-registry-prometheus`; otherwise
 Spring Boot does not create the Prometheus actuator endpoint and requests return
 `No static resource actuator/prometheus`.
