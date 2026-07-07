@@ -1011,7 +1011,175 @@ Run it only after the selected service branch CI has pushed the SHA image.
 `delete_developer_deploy` resets all developer service image tags back to
 `main`; it does not delete the `yas-developer` namespace or ArgoCD Applications.
 
-## 15. Kafka, Elasticsearch, and Search
+## 15. Observability demo
+
+This repo keeps the YAS observability stack in `k8s/deploy/observability`.
+Deploy it with Helm for the demo; it is not part of the ArgoCD app-of-apps
+flow yet.
+
+The stack is:
+
+```txt
+Prometheus + Grafana + Loki + Promtail + Tempo + OpenTelemetry Collector
+```
+
+Install the Helm repositories:
+
+```bash
+cd ~/yas/k8s/deploy
+
+helm repo add grafana https://grafana.github.io/helm-charts
+helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+helm repo add open-telemetry https://open-telemetry.github.io/opentelemetry-helm-charts
+helm repo add jetstack https://charts.jetstack.io
+helm repo update
+```
+
+Install the observability services:
+
+```bash
+helm upgrade --install loki grafana/loki \
+  --create-namespace --namespace observability \
+  -f observability/loki.values.yaml
+
+helm upgrade --install tempo grafana/tempo \
+  --create-namespace --namespace observability \
+  -f observability/tempo.values.yaml
+
+helm upgrade --install cert-manager jetstack/cert-manager \
+  --namespace cert-manager \
+  --create-namespace \
+  --version v1.12.0 \
+  --set installCRDs=true \
+  --set prometheus.enabled=false
+
+helm upgrade --install opentelemetry-operator open-telemetry/opentelemetry-operator \
+  --create-namespace --namespace observability
+
+helm uninstall opentelemetry-collector -n observability || true
+
+helm upgrade --install opentelemetry ./observability/opentelemetry \
+  --create-namespace --namespace observability
+
+helm upgrade --install promtail grafana/promtail \
+  --create-namespace --namespace observability \
+  -f observability/promtail.values.yaml
+
+helm upgrade --install prometheus prometheus-community/kube-prometheus-stack \
+  --create-namespace --namespace observability \
+  -f observability/prometheus.values.yaml
+
+helm upgrade --install grafana-operator oci://ghcr.io/grafana-operator/helm-charts/grafana-operator \
+  --version v5.0.2 \
+  --create-namespace --namespace observability
+
+helm upgrade --install grafana ./observability/grafana \
+  --create-namespace --namespace observability \
+  --set hostname="grafana.yas.local.com" \
+  --set grafana.username=admin \
+  --set grafana.password=admin \
+  --set postgresql.username=yasadminuser \
+  --set postgresql.password=admin
+```
+
+The dev environment values enable `ServiceMonitor` for backend and BFF
+services. Metrics are scraped from the management port, so the ServiceMonitor
+path stays:
+
+```txt
+/actuator/prometheus
+```
+
+`sampledata` is not monitored by default because dev keeps it scaled to zero
+after seeding demo data.
+
+The applications must include `micrometer-registry-prometheus`; otherwise
+Spring Boot does not create the Prometheus actuator endpoint and requests return
+`No static resource actuator/prometheus`.
+
+The dev backend values also enable OpenTelemetry Java Agent injection for the
+services used in the tracing demo. The backend chart copies the agent from the
+OpenTelemetry auto-instrumentation image and exports spans to:
+
+```txt
+http://opentelemetry-collector.observability:4318
+```
+
+Tempo is reachable through the Grafana datasource at:
+
+```txt
+http://tempo:3200
+```
+
+After Prometheus CRDs are installed, sync `yas-dev` again so ArgoCD creates the
+ServiceMonitor resources:
+
+```bash
+kubectl annotate application yas-dev -n argocd \
+  argocd.argoproj.io/refresh=hard --overwrite
+```
+
+Expose Grafana for a quick demo:
+
+```bash
+kubectl port-forward -n observability svc/prometheus-grafana 3000:80 --address 0.0.0.0
+```
+
+Open:
+
+```txt
+http://<VM_EXTERNAL_IP>:3000
+admin / admin
+```
+
+Verify:
+
+```bash
+kubectl get pods -n observability
+kubectl get servicemonitor -n yas-dev
+
+kubectl run metrics-test -n yas-dev --rm -it \
+  --image=curlimages/curl --restart=Never -- \
+  curl -i http://product:8090/actuator/prometheus
+```
+
+Verify tracing after `yas-dev` has synced the OpenTelemetry-enabled values:
+
+```bash
+kubectl get deploy product storefront-bff backoffice-bff -n yas-dev -o yaml \
+  | grep -n "OTEL\\|JAVA_TOOL_OPTIONS" -A5
+
+VM_IP=$(curl -s -H "Metadata-Flavor: Google" \
+  "http://metadata.google.internal/computeMetadata/v1/instance/network-interfaces/0/access-configs/0/external-ip")
+
+for i in {1..50}; do
+  curl -s "http://$VM_IP:30081/api/product/storefront/categories" >/dev/null
+  curl -s "http://$VM_IP:30081/api/product/storefront/products/featured?pageNo=0" >/dev/null
+done
+
+START=$(date -u -d '30 minutes ago' +%s)
+END=$(date -u +%s)
+
+kubectl run tempo-search -n observability --rm -it \
+  --image=curlimages/curl --restart=Never -- \
+  curl -G -s "http://tempo:3200/api/search" \
+  --data-urlencode "start=$START" \
+  --data-urlencode "end=$END" \
+  --data-urlencode "limit=5"
+```
+
+`traces: []` means the app is not sending spans yet or there has been no recent
+traffic. Create traffic and refresh Grafana with a recent time range.
+
+Create traffic from storefront/backoffice, then capture evidence:
+
+```txt
+Grafana dashboard: JVM / HTTP / HikariCP metrics
+Grafana Explore -> Tempo: BFF -> backend -> database trace waterfall
+Grafana Explore -> Loki: namespace/container logs
+```
+
+## 16. Kafka, Elasticsearch, and Search
 
 Deploy Kafka/Search only after the core services are healthy. The original YAS
 Kafka chart used ZooKeeper, but Strimzi `0.47.0` supports only KRaft clusters.
@@ -1134,7 +1302,7 @@ kubectl get pvc -n elasticsearch
 kubectl delete pvc elasticsearch-data-elasticsearch-es-node-0 -n elasticsearch --ignore-not-found
 ```
 
-## 16. Common recovery commands
+## 17. Common recovery commands
 
 Check pods/services:
 
@@ -1190,7 +1358,7 @@ Do not run that from inside the VM. It can fail with:
 ACCESS_TOKEN_SCOPE_INSUFFICIENT
 ```
 
-## 17. Final verification checklist
+## 18. Final verification checklist
 
 Cluster:
 

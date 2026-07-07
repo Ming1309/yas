@@ -1,0 +1,16 @@
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: tax-retry
+  namespace: yas-dev
+spec:
+  hosts:
+  - tax
+  http:
+  - retries:
+      attempts: 3
+      perTryTimeout: 2s
+      retryOn: 5xx
+    route:
+    - destination:
+        host: tax

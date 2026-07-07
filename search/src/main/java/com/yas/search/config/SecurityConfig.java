@@ -21,6 +21,7 @@ public class SecurityConfig {
         return http
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/actuator/prometheus", "/actuator/health/**",
+                                "/search/actuator/prometheus", "/search/actuator/health/**",
                                 "/swagger-ui", "/swagger-ui/**", "/error", "/v3/api-docs/**").permitAll()
                         .requestMatchers("/storefront/**").permitAll()
                         .requestMatchers("/backoffice/**").hasRole("ADMIN")
