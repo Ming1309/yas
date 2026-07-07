@@ -1,12 +1,10 @@
 ui:
   image:
     repository: docker.io/mingpham/yas-backoffice-ui
-    tag: main
-
+    tag: v1.0.0
   service:
     type: NodePort
     nodePort: 30090
-
   resources:
     requests:
       cpu: 100m

@@ -1,16 +1,12 @@
 backend:
   image:
     repository: docker.io/mingpham/yas-sampledata
-    tag: main
-
+    tag: v1.0.0
   replicaCount: 0
-
   service:
     type: ClusterIP
-
   serviceMonitor:
     enabled: false
-
   resources:
     requests:
       cpu: 100m
