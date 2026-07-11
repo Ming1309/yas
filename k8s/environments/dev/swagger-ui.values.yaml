@@ -1,6 +1,6 @@
 image:
   repository: swaggerapi/swagger-ui
-  tag: v4.16.0
+  tag: v5.17.14
 
 service:
   type: ClusterIP
