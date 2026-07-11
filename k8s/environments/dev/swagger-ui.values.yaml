@@ -5,8 +5,24 @@ image:
 service:
   type: ClusterIP
 
+urls: "[{ url: 'http://api.yas.local.com/api/product/v3/api-docs', name: 'Product' },
+      { url: 'http://api.yas.local.com/api/media/v3/api-docs', name: 'Media' },
+      { url: 'http://api.yas.local.com/api/customer/v3/api-docs', name: 'Customer' },
+      { url: 'http://api.yas.local.com/api/cart/v3/api-docs', name: 'Cart' },
+      { url: 'http://api.yas.local.com/api/order/v3/api-docs', name: 'Order' },
+      { url: 'http://api.yas.local.com/api/inventory/v3/api-docs', name: 'Inventory' },
+      { url: 'http://api.yas.local.com/api/tax/v3/api-docs', name: 'Tax' },
+      { url: 'http://api.yas.local.com/api/search/v3/api-docs', name: 'Search' }]"
+
 ingress:
-  enabled: false
+  enabled: true
+  className: nginx
+  host: api.yas.local.com
+  hosts:
+    - host: api.yas.local.com
+      paths:
+        - path: /swagger-ui
+          pathType: Prefix
 
 resources:
   requests:

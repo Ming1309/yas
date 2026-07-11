@@ -6,7 +6,11 @@ backend:
     type: NodePort
     nodePort: 30081
   ingress:
-    enabled: false
+    enabled: true
+    className: nginx
+    host: api.yas.local.com
+    path: /api
+    pathType: Prefix
   serviceMonitor:
     enabled: true
   opentelemetry:
