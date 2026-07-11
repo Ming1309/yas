@@ -65,6 +65,12 @@
             <type>test-jar</type>
             <scope>test</scope>
         </dependency>
+        <!-- DEMO ONLY: intentionally vulnerable dependency to trigger Snyk PR check -->
+        <dependency>
+            <groupId>org.apache.logging.log4j</groupId>
+            <artifactId>log4j-core</artifactId>
+            <version>2.14.1</version>
+        </dependency>
     </dependencies>
     <build>
         <plugins>
