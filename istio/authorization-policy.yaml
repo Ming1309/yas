@@ -14,6 +14,7 @@ spec:
         principals:
         - "cluster.local/ns/yas-dev/sa/storefront-bff"
         - "cluster.local/ns/yas-dev/sa/backoffice-bff"
+        - "cluster.local/ns/yas-dev/sa/cart"
         - "cluster.local/ns/yas-dev/sa/order"
         - "cluster.local/ns/yas-dev/sa/search"
         - "cluster.local/ns/yas-dev/sa/inventory"
